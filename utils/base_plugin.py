@@ -1,4 +1,3 @@
-
 import pluginlib
 
 from definitions import BasePluginConfig, PluginResult

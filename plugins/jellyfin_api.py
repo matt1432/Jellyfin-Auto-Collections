@@ -1,8 +1,9 @@
-from typing import final
+from typing import cast, final
 
 import requests
 
 from definitions import (
+    BasePluginConfig,
     JellyfinItem,
     JellyfinPluginConfig,
     ListIDItem,
@@ -18,12 +19,11 @@ class JellyfinAPI(ListScraper):
     _alias_ = "jellyfin_api"
 
     @staticmethod
-    def get_list(
-        list_id: ListIDItem, config: JellyfinPluginConfig
-    ) -> PluginResult:
+    def get_list(list_id: ListIDItem, config: BasePluginConfig) -> PluginResult:
         """Call jellyfin API
         list_id should be a dict to pass to https://api.jellyfin.org/#tag/Items/operation/GetItems
         """
+        config = cast(JellyfinPluginConfig, config)
 
         # If list name/desc have been manually specified - grab them
         list_name = f"{list_id}"

@@ -1,9 +1,14 @@
-from typing import final
+from typing import cast, final
 
 import requests
 from loguru import logger
 
-from definitions import ArrPluginConfig, JellyfinItem, PluginResult
+from definitions import (
+    ArrPluginConfig,
+    BasePluginConfig,
+    JellyfinItem,
+    PluginResult,
+)
 from utils.base_plugin import ListScraper
 
 
@@ -14,8 +19,10 @@ class Arr(ListScraper):
     _alias_ = "arr"
 
     @staticmethod
-    def get_list(list_id: str, config: ArrPluginConfig) -> PluginResult:
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:
         """Call arr API"""
+
+        config = cast(ArrPluginConfig, config)
 
         items: list[JellyfinItem] = []
 

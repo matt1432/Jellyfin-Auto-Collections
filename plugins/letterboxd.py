@@ -5,7 +5,12 @@ import requests
 from loguru import logger
 from requests_cache import CachedSession
 
-from definitions import JellyfinItem, LetterboxdPluginConfig, PluginResult
+from definitions import (
+    BasePluginConfig,
+    JellyfinItem,
+    LetterboxdPluginConfig,
+    PluginResult,
+)
 from utils.base_plugin import ListScraper
 
 
@@ -14,7 +19,9 @@ class Letterboxd(ListScraper):
     _alias_ = "letterboxd"
 
     @staticmethod
-    def get_list(list_id: str, config: LetterboxdPluginConfig) -> PluginResult:
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:
+        config = cast(LetterboxdPluginConfig, config)
+
         page_number = 1
         list_name = None
         description = None

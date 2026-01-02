@@ -5,7 +5,12 @@ from typing import cast, final
 import requests
 from loguru import logger
 
-from definitions import JellyfinItem, PluginResult, TraktPluginConfig
+from definitions import (
+    BasePluginConfig,
+    JellyfinItem,
+    PluginResult,
+    TraktPluginConfig,
+)
 from utils.base_plugin import ListScraper
 
 
@@ -78,8 +83,10 @@ class Trakt(ListScraper):
     }
 
     @staticmethod
-    def _get_auth_token(config: TraktPluginConfig):
+    def _get_auth_token(config: BasePluginConfig):
         """Get the authentication token for the Trakt API"""
+
+        config = cast(TraktPluginConfig, config)
 
         headers = {
             "Content-Type": "application/json",
