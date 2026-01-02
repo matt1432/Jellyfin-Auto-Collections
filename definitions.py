@@ -96,4 +96,6 @@ class PluginResult(TypedDict):
 @runtime_checkable
 class ListScraperClass(Protocol):
     @staticmethod
-    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult: ...
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult: ...

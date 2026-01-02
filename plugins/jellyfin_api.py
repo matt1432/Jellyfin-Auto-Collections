@@ -19,10 +19,15 @@ class JellyfinAPI(ListScraper):
     _alias_ = "jellyfin_api"
 
     @staticmethod
-    def get_list(list_id: ListIDItem, config: BasePluginConfig) -> PluginResult:
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult:
         """Call jellyfin API
         list_id should be a dict to pass to https://api.jellyfin.org/#tag/Items/operation/GetItems
         """
+        if isinstance(list_id, str):
+            raise TypeError("JellyfinAPI must have objects in list_ids")
+
         config = cast(JellyfinPluginConfig, config)
 
         # If list name/desc have been manually specified - grab them

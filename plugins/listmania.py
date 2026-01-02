@@ -4,7 +4,7 @@ import bs4
 import requests
 import yaml
 
-from definitions import BasePluginConfig, JellyfinItem, PluginResult
+from definitions import BasePluginConfig, JellyfinItem, ListIDItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
@@ -13,7 +13,15 @@ class ListMania(ListScraper):
     _alias_ = "listmania"
 
     @staticmethod
-    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+        if not isinstance(list_id, str):
+            if "list_id" in list_id:
+                list_id = list_id["list_id"]
+            else:
+                list_id = str(list_id)
+
         r = requests.get(f"https://www.listmania.org/list/{list_id}")
         soup = bs4.BeautifulSoup(r.text, "html.parser")
 

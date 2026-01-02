@@ -2,7 +2,7 @@ from typing import final
 
 import requests
 
-from definitions import BasePluginConfig, JellyfinItem, PluginResult
+from definitions import BasePluginConfig, JellyfinItem, ListIDItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
@@ -37,7 +37,15 @@ class PopularMovies(ListScraper):
         return False
 
     @staticmethod
-    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+        if not isinstance(list_id, str):
+            if "list_id" in list_id:
+                list_id = list_id["list_id"]
+            else:
+                list_id = str(list_id)
+
         if not PopularMovies._is_valid_list_id(list_id):
             raise Exception(f'Invalid list_id "{list_id}" for popular-movies')
 

@@ -107,7 +107,7 @@ def main(config: Config):
 
                 # Match list items to jellyfin items
                 list_info = plugins[plugin_name].get_list(
-                    list_id, plugin_config
+                    list_entry, plugin_config
                 )
 
                 # Find jellyfin collection or create it

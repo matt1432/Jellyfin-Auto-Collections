@@ -8,6 +8,7 @@ from loguru import logger
 from definitions import (
     BasePluginConfig,
     JellyfinItem,
+    ListIDItem,
     PluginResult,
     TraktPluginConfig,
 )
@@ -83,10 +84,8 @@ class Trakt(ListScraper):
     }
 
     @staticmethod
-    def _get_auth_token(config: BasePluginConfig):
+    def _get_auth_token(config: TraktPluginConfig):
         """Get the authentication token for the Trakt API"""
-
-        config = cast(TraktPluginConfig, config)
 
         headers = {
             "Content-Type": "application/json",
@@ -142,7 +141,17 @@ class Trakt(ListScraper):
         return access_token
 
     @staticmethod
-    def get_list(list_id: str, config: TraktPluginConfig) -> PluginResult:
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult:
+        if not isinstance(list_id, str):
+            if "list_id" in list_id:
+                list_id = list_id["list_id"]
+            else:
+                list_id = str(list_id)
+
+        config = cast(TraktPluginConfig, config)
+
         headers = {
             "Content-Type": "application/json",
             "trakt-api-version": "2",

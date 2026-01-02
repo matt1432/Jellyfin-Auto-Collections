@@ -9,6 +9,7 @@ from definitions import (
     BasePluginConfig,
     JellyfinItem,
     LetterboxdPluginConfig,
+    ListIDItem,
     PluginResult,
 )
 from utils.base_plugin import ListScraper
@@ -19,7 +20,15 @@ class Letterboxd(ListScraper):
     _alias_ = "letterboxd"
 
     @staticmethod
-    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:
+    def get_list(
+        list_id: str | ListIDItem, config: BasePluginConfig
+    ) -> PluginResult:
+        if not isinstance(list_id, str):
+            if "list_id" in list_id:
+                list_id = list_id["list_id"]
+            else:
+                list_id = str(list_id)
+
         config = cast(LetterboxdPluginConfig, config)
 
         page_number = 1
