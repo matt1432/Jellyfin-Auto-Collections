@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Protocol, TypedDict, runtime_checkable
 
 
 class JellyfinConfig(TypedDict):
@@ -91,3 +91,9 @@ class PluginResult(TypedDict):
     name: str
     description: str
     items: list[JellyfinItem]
+
+
+@runtime_checkable
+class ListScraperClass(Protocol):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult: ...

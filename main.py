@@ -9,8 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 from pyaml_env import parse_config
 
-from definitions import BasePluginConfig, Config
-from utils.base_plugin import ListScraperClass
+from definitions import BasePluginConfig, Config, ListScraperClass
 from utils.jellyfin import JellyfinClient
 from utils.jellyseerr import JellyseerrClient
 
