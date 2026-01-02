@@ -4,9 +4,10 @@ from io import BytesIO
 from typing import BinaryIO
 
 import requests
-from _typeshed import StrOrBytesPath
 from loguru import logger
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps, _typing
+
+StrOrBytesPath = _typing.StrOrBytesPath
 
 # Canvas dimensions and styling
 CANVAS_WIDTH = 2000
