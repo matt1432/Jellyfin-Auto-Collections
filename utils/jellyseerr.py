@@ -3,7 +3,7 @@ import urllib.parse
 from loguru import logger
 
 class JellyseerrClient:
-    def __init__(self, server_url: str, api_key:str=None, email: str=None, password: str=None, user_type: str="local"):
+    def __init__(self, server_url: str, api_key:str|None=None, email: str|None=None, password: str|None=None, user_type: str="local"):
         # Fix common url issues
         if server_url.endswith("/"):
             server_url = server_url[:-1]  # Remove trailing slash 
@@ -28,7 +28,7 @@ class JellyseerrClient:
             r = self.session.headers.update({
                 "X-Api-Key": api_key
             })
-            if r.status_code != 200:
+            if r is None or r.status_code != 200:
                 raise Exception("Invalid jellyseerr API Key")
         if email is not None and password is not None:
             r = self.session.post(f"{self.server_url}/auth/{user_type}", json={
@@ -51,10 +51,12 @@ class JellyseerrClient:
         r = self.session.get(f"{self.server_url}/search", params={
             "query": urllib.parse.quote_plus(item["title"])
         })
-        
+
         # Find matching item
         mediaId = None
-        for result in r.json()["results"]:
+        result = None
+        for _result in r.json()["results"]:
+            result = _result
             # Try IMDB match first
             if "mediaInfo" in result and "ImdbId" in result["mediaInfo"]:
                 imdb_id = result["mediaInfo"]["ImdbId"]
@@ -71,7 +73,7 @@ class JellyseerrClient:
                     break
 
         # Request item if not found
-        if mediaId is not None:
+        if mediaId is not None and result is not None:
             if "mediaInfo" not in result or result["mediaInfo"]["jellyfinMediaId"] is None:
                 # If it's not already in Jellyfin
                 # Request item
@@ -85,7 +87,7 @@ class JellyseerrClient:
 
 if __name__ == "__main__":
     from pyaml_env import parse_config
-    config = parse_config("/home/thomas/Documents/Jellyfin-Auto-Collections/config.yaml", default_value=None)
+    config = parse_config("/home/thomas/Documents/Jellyfin-Auto-Collections/config.yaml")
 
     client = JellyseerrClient(
         server_url=config["jellyseerr"]["server_url"],

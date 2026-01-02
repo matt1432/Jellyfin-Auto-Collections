@@ -1,15 +1,14 @@
-import json
 from utils.base_plugin import ListScraper
 import bs4
 import requests
 from loguru import logger
-from requests_cache import CachedSession, FileCache
+from requests_cache import CachedSession
 
 class Letterboxd(ListScraper):
 
     _alias_ = 'letterboxd'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         page_number = 1
         list_name = None
         description = None
@@ -44,7 +43,7 @@ class Letterboxd(ListScraper):
             soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
             if list_name is None:
-                list_name = soup.find('h1', {'class': 'title-1 prettify'}).text
+                list_name = soup.find('h1', {'class': 'title-1 prettify'}).text  # type: ignore
 
             if description is None:
                 description = soup.find('div', {'class': 'body-text'})
@@ -54,23 +53,23 @@ class Letterboxd(ListScraper):
                     description = ""
 
             if watchlist:
-                page = soup.find_all('li', {'class': 'griditem'})
+                page = soup.find_all('li', {'class': 'griditem'})  # type: ignore
             elif likeslist:
-                page = soup.find_all('li', {'class': 'posteritem'})
+                page = soup.find_all('li', {'class': 'posteritem'})  # type: ignore
             else:
                 page = soup.find_all('article')
 
             for movie_soup in page:
                 if watchlist or likeslist:
-                    movie = {"title": movie_soup.find('img').attrs['alt'], "media_type": "movie"}
-                    link = movie_soup.find("div").attrs["data-target-link"]
+                    movie = {"title": movie_soup.find('img').attrs['alt'], "media_type": "movie"}  # type: ignore
+                    link = movie_soup.find("div").attrs["data-target-link"]  # type: ignore
                 else:
-                    movie = {"title": movie_soup.find('h2').find('a').text, "media_type": "movie"}
-                    movie_year = movie_soup.find('small', {'class': 'metadata'})
+                    movie = {"title": movie_soup.find('h2').find('a').text, "media_type": "movie"}  # type: ignore
+                    movie_year = movie_soup.find('small', {'class': 'metadata'})  # type: ignore
                     if movie_year is not None:
                         movie["release_year"] = movie_year.text.strip()
 
-                    link = movie_soup.find('a')['href']
+                    link = movie_soup.find('a')['href']  # type: ignore
 
 
                 if config.get("imdb_id_filter", False) or 'release_year' not in movie:
@@ -80,11 +79,11 @@ class Letterboxd(ListScraper):
                     r = session.get(f"https://letterboxd.com{link}", headers={'User-Agent': 'Mozilla/5.0'})
                     movie_soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
-                    imdb_id = movie_soup.find('a', href=lambda href: href and 'imdb.com/title' in href)
-                    movie_year = movie_soup.find("div", class_="details").find("span", class_="releasedate")
+                    imdb_id = movie_soup.find('a', href=lambda href: href and 'imdb.com/title' in href)  # type: ignore
+                    movie_year = movie_soup.find("div", class_="details").find("span", class_="releasedate")  # type: ignore
 
                     if imdb_id is not None:
-                        movie["imdb_id"] = imdb_id["href"].split("/title/")[1].split("/")[0]
+                        movie["imdb_id"] = imdb_id["href"].split("/title/")[1].split("/")[0]  # type: ignore
 
                     if movie_year is not None:
                         movie["release_year"] = movie_year.text.strip()

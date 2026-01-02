@@ -4,8 +4,6 @@ from loguru import logger
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 import math
 from io import BytesIO
-import concurrent.futures
-from pyaml_env import parse_config
 
 # Canvas dimensions and styling
 CANVAS_WIDTH = 2000

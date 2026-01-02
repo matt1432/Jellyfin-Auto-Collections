@@ -91,7 +91,7 @@ class JellyfinClient:
             if collection.get("Overview", "") == "" and description is not None:
                 collection["Overview"] = description
             collection["Tags"] = list(set(collection.get("Tags", []) + ["Jellyfin-Auto-Collections", plugin_name, json.dumps(list_id)]))
-            r = requests.post(f'{self.server_url}/Items/{collection_id}',headers={"X-Emby-Token": self.api_key}, json=collection)
+            requests.post(f'{self.server_url}/Items/{collection_id}',headers={"X-Emby-Token": self.api_key}, json=collection)
 
         return collection_id
 
@@ -140,7 +140,7 @@ class JellyfinClient:
         encoded_data = b64encode(img_data)
 
         headers["Content-Type"] = "image/jpeg"
-        r = requests.post(f"{self.server_url}/Items/{collection_id}/Images/Primary", headers=headers, data=encoded_data)
+        requests.post(f"{self.server_url}/Items/{collection_id}/Images/Primary", headers=headers, data=encoded_data)
 
 
     def add_item_to_collection(self, collection_id: str, item, year_filter: bool = True, jellyfin_query_parameters={}):

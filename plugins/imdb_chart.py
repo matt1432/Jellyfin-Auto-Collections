@@ -7,15 +7,15 @@ class IMDBChart(ListScraper):
 
     _alias_ = 'imdb_chart'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         res = requests.get(f'https://www.imdb.com/chart/{list_id}', headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0', 'Accept-Language': 'en-US'})
         soup = bs4.BeautifulSoup(res.text, 'html.parser')
-        list_name = soup.find('title').text
-        description = soup.find('meta', property='og:description')['content']
+        list_name = soup.find('title').text  # type: ignore
+        description = soup.find('meta', property='og:description')['content']  # type: ignore
         movies = []
 
         data = soup.find('script', id='__NEXT_DATA__')
-        data = json.loads(data.text)
+        data = json.loads(data.text)  # type: ignore
 
         for movie in next(iter(data["props"]["pageProps"]["pageData"].values()))["edges"]:
             movie = movie["node"]
@@ -23,7 +23,7 @@ class IMDBChart(ListScraper):
                 # Get item details
                 res = requests.get(f'https://www.imdb.com/title/{movie["release"]["titles"][0]["id"]}', headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0'})
                 soup = bs4.BeautifulSoup(res.text, 'html.parser')
-                item_data = json.loads(soup.find('script', id='__NEXT_DATA__').text)
+                item_data = json.loads(soup.find('script', id='__NEXT_DATA__').text)  # type: ignore
                 movie = item_data["props"]["pageProps"]["aboveTheFoldData"]
 
             title = movie["titleText"]["text"]

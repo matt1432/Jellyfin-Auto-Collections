@@ -1,4 +1,3 @@
-import json
 from utils.base_plugin import ListScraper
 import bs4
 import requests
@@ -7,7 +6,7 @@ class TSPDT(ListScraper):
 
     _alias_ = 'tspdt'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         r = requests.get("https://www.theyshootpictures.com/gf1000_all1000films_table.php")
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
         movies = []

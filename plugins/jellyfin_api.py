@@ -1,6 +1,4 @@
-import bs4
 import requests
-import json
 from utils.base_plugin import ListScraper
 
 class JellyfinAPI(ListScraper):
@@ -8,7 +6,7 @@ class JellyfinAPI(ListScraper):
 
     _alias_ = 'jellyfin_api'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         '''Call jellyfin API
            list_id should be a dict to pass to https://api.jellyfin.org/#tag/Items/operation/GetItems
         '''
@@ -31,7 +29,11 @@ class JellyfinAPI(ListScraper):
         }
         params = {**params, **list_id}
 
-        res = requests.get(f'{config["server_url"]}/Users/{config["user_id"]}/Items',headers={"X-Emby-Token": config["api_key"]}, params=params)
+        res = requests.get(
+            f'{config["server_url"]}/Users/{config["user_id"]}/Items',
+            headers={"X-Emby-Token": config["api_key"]},
+            params=params
+        )
 
         items = []
         for item in res.json()["Items"]:

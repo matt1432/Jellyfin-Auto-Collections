@@ -1,4 +1,3 @@
-from typing import cast
 from utils.jellyfin import JellyfinClient
 from utils.jellyseerr import JellyseerrClient
 import pluginlib
@@ -26,7 +25,7 @@ if not os.path.exists(args.config):
     logger.error(f"{args.config} does not exist.")
     logger.error(f"Copy config.yaml.example to {args.config} and add your jellyfin config.")
     raise Exception("No config file found.")
-config = parse_config(args.config, default_value=None)
+config = parse_config(args.config)
 
 def main(config):
     # Setup jellyfin connection
@@ -65,14 +64,14 @@ def main(config):
                     if "list_id" in list_entry:
                         list_id = list_entry["list_id"]
                     else:
-                        list_id = list_entry
+                        list_id = str(list_entry)
                     list_name = list_entry.get("list_name", None)
                 else:
                     list_id = list_entry
                     list_name = None
 
-                logger.info(f"")
-                logger.info(f"")
+                logger.info("")
+                logger.info("")
                 logger.info(f"Getting list info for plugin: {plugin_name}, list id: {list_id}")
 
                 # Match list items to jellyfin items

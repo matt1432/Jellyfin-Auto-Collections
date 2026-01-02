@@ -1,4 +1,3 @@
-import json
 import requests
 
 from utils.base_plugin import ListScraper
@@ -9,7 +8,7 @@ class PopularMovies(ListScraper):
 
     _alias_ = 'popular_movies'
 
-    def _is_valid_list_id(list_id):
+    def _is_valid_list_id(self, list_id):
         if list_id in [
             "movies",
             "all-movies",
@@ -32,8 +31,8 @@ class PopularMovies(ListScraper):
             return True
         return False
 
-    def get_list(list_id, config=None):
-        if not PopularMovies._is_valid_list_id(list_id):
+    def get_list(self, list_id, config):
+        if not self._is_valid_list_id(list_id):
             raise Exception(f"Invalid list_id \"{list_id}\" for popular-movies")
 
         # Get the list name

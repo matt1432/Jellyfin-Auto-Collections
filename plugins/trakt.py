@@ -1,6 +1,4 @@
-import json
 from utils.base_plugin import ListScraper
-import bs4
 import os
 import requests
 from loguru import logger
@@ -76,7 +74,7 @@ class Trakt(ListScraper):
 
 
 
-    def _get_auth_token(config):
+    def _get_auth_token(self, config):
         '''Get the authentication token for the Trakt API'''
 
         headers = {
@@ -123,7 +121,7 @@ class Trakt(ListScraper):
         return access_token
 
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
 
         headers = {
             "Content-Type": "application/json",
@@ -131,9 +129,11 @@ class Trakt(ListScraper):
             "trakt-api-key": config["client_id"]
         }
 
-        access_token = Trakt._get_auth_token(config)
+        access_token = self._get_auth_token(config)
         headers["Authorization"] = f"Bearer {access_token}"
         logger.debug("Access token loaded")
+
+        item_types = None
 
         if list_id.startswith("users/"):
             logger.debug("Trakt Default User list")
@@ -194,7 +194,7 @@ class Trakt(ListScraper):
                 item["imdb_id"] = meta["ids"]["imdb"]
             try:
                 item["title"] = meta["title"]
-            except:
+            except Exception:
                 breakpoint()
             if "year" in meta:
                 item["release_year"] = meta["year"]

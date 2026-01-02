@@ -2,13 +2,12 @@ import yaml
 from utils.base_plugin import ListScraper
 import bs4
 import requests
-from loguru import logger
 
 class ListMania(ListScraper):
 
     _alias_ = 'listmania'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         r = requests.get(f"https://www.listmania.org/list/{list_id}")
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
 
@@ -16,7 +15,7 @@ class ListMania(ListScraper):
         json_ld_tag = soup.find("script", type="application/ld+json")
         if not json_ld_tag:
             raise ValueError("No JSON-LD metadata found on the page")
-        json_ld = yaml.load(json_ld_tag.string, Loader=yaml.SafeLoader)
+        json_ld = yaml.load(str(json_ld_tag.string), Loader=yaml.SafeLoader)
 
         # Basic metadata
         list_name = json_ld.get("name", "").strip()

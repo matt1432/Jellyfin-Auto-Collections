@@ -25,8 +25,8 @@ def test_list_output():
 ])
 def test_get_list(test_list, test_list_output):
     # Assuming Letterboxd.get_list returns a dictionary with a key "items"
-    result = Letterboxd.get_list(test_list, {"imdb_id_filter": True})
-    
+    result = Letterboxd.get_list(test_list, {"imdb_id_filter": True}, config=None)
+
     # Perform the assertion to check if the "items" key matches the expected output
     assert result["items"] == test_list_output
 

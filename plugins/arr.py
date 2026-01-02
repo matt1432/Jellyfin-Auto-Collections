@@ -1,17 +1,13 @@
-import bs4
 import requests
-import json
 from utils.base_plugin import ListScraper
 from loguru import logger
-
-#from arrapi import SonarrAPI, RadarrAPI
 
 class Arr(ListScraper):
     '''Generate collections based on Jellyfin API queries'''
 
     _alias_ = 'arr'
 
-    def get_list(list_id, config=None):
+    def get_list(self, list_id, config):
         '''Call arr API'''
 
         items = []
