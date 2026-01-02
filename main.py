@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pluginlib
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -10,11 +10,9 @@ from loguru import logger
 from pyaml_env import parse_config
 
 from definitions import BasePluginConfig, Config
+from utils.base_plugin import ListScraperClass
 from utils.jellyfin import JellyfinClient
 from utils.jellyseerr import JellyseerrClient
-
-if TYPE_CHECKING:
-    from utils.base_plugin import ListScraperClass
 
 
 class Namespace(argparse.Namespace):
