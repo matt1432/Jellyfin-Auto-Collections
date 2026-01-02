@@ -1,18 +1,23 @@
+from typing import final
+
 import bs4
 import requests
 
+from definitions import BasePluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class TSPDT(ListScraper):
     _alias_ = "tspdt"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
         r = requests.get(
             "https://www.theyshootpictures.com/gf1000_all1000films_table.php"
         )
         soup = bs4.BeautifulSoup(r.text, "html.parser")
-        movies = []
+        movies: list[JellyfinItem] = []
 
         for row in soup.find_all("tr")[1:]:
             values = row.find_all("td")

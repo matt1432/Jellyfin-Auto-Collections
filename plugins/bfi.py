@@ -1,16 +1,20 @@
 import re
+from typing import final
 
 import bs4
 import requests
 import yaml
 
+from definitions import BasePluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class BFI(ListScraper):
     _alias_ = "bfi"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
         r = requests.get(f"https://www.bfi.org.uk/lists/{list_id}")
         soup = bs4.BeautifulSoup(r.text, "html.parser")
 
@@ -25,7 +29,7 @@ class BFI(ListScraper):
         description = json_ld.get("description", "").strip()
 
         # Movies
-        items = []
+        items: list[JellyfinItem] = []
         year_pattern = re.compile(r"\s*\((\d{4})\)\s*$")
         for entry in soup.find_all("figcaption"):
             title = entry.text

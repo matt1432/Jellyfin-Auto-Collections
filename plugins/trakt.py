@@ -1,12 +1,15 @@
 import os
 import time
+from typing import cast, final
 
 import requests
 from loguru import logger
 
+from definitions import JellyfinItem, PluginResult, TraktPluginConfig
 from utils.base_plugin import ListScraper
 
 
+@final
 class Trakt(ListScraper):
     _alias_ = "trakt"
     _access_token_file = ".trakt_access_token"
@@ -74,7 +77,8 @@ class Trakt(ListScraper):
         },
     }
 
-    def _get_auth_token(self, config):
+    @staticmethod
+    def _get_auth_token(config: TraktPluginConfig):
         """Get the authentication token for the Trakt API"""
 
         headers = {
@@ -126,22 +130,23 @@ class Trakt(ListScraper):
 
             # Save the access token to a file
             with open(Trakt._access_token_file, "w") as f:
-                f.write(access_token)
+                _ = f.write(access_token)
             logger.info("Successfully authenticated with Trakt API")
         return access_token
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: TraktPluginConfig) -> PluginResult:
         headers = {
             "Content-Type": "application/json",
             "trakt-api-version": "2",
             "trakt-api-key": config["client_id"],
         }
 
-        access_token = self._get_auth_token(config)
+        access_token = Trakt._get_auth_token(config)
         headers["Authorization"] = f"Bearer {access_token}"
         logger.debug("Access token loaded")
 
-        item_types = None
+        item_types = ""
 
         if list_id.startswith("users/"):
             logger.debug("Trakt Default User list")
@@ -188,30 +193,43 @@ class Trakt(ListScraper):
 
         # Process the items
         logger.debug("Processing items.")
-        items = []
+        items: list[JellyfinItem] = []
         for item_data in items_data:
             if "type" in item_data:
-                item = {"media_type": item_data["type"]}
+                media_type = cast(str, item_data["type"])
             else:
-                item = {"media_type": item_types}
+                media_type = item_types
 
-            if item["media_type"] == "season":
+            if media_type == "season":
                 # Ignore seasons
                 continue
 
             if "ids" in item_data:
                 meta = item_data
             else:
-                meta = item_data[item["media_type"]]
+                meta = item_data[media_type]
 
+            imdb_id = None
             if "imdb" in meta["ids"]:
-                item["imdb_id"] = meta["ids"]["imdb"]
+                imdb_id = meta["ids"]["imdb"]
+
+            title = ""
             try:
-                item["title"] = meta["title"]
+                title = cast(str, meta["title"])
             except Exception:
                 breakpoint()
+
+            release_year = None
             if "year" in meta:
-                item["release_year"] = meta["year"]
-            items.append(item)
+                release_year = meta["year"]
+
+            items.append(
+                JellyfinItem(
+                    title=title,
+                    imdb_id=imdb_id,
+                    media_type=media_type,
+                    release_year=release_year,
+                )
+            )
 
         return {"name": list_name, "description": description, "items": items}

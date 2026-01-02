@@ -40,11 +40,9 @@ def test_list_output():
         "jf_auto_collect/list/test_list/",
     ],
 )
-def test_get_list(test_list, test_list_output):
+def test_get_list(test_list: str, test_list_output: list[str]):
     # Assuming Letterboxd.get_list returns a dictionary with a key "items"
-    result = Letterboxd.get_list(
-        test_list, {"imdb_id_filter": True}, config=None
-    )
+    result = Letterboxd.get_list(test_list, {"imdb_id_filter": True})
 
     # Perform the assertion to check if the "items" key matches the expected output
     assert result["items"] == test_list_output

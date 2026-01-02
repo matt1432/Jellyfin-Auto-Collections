@@ -1,10 +1,17 @@
 import urllib.parse
+from typing import cast
 
 import requests
 from loguru import logger
 
+from definitions import Config, JellyfinItem
+
 
 class JellyseerrClient:
+    api_key: str | None
+    server_url: str
+    session: requests.Session
+
     def __init__(
         self,
         server_url: str,
@@ -52,7 +59,7 @@ class JellyseerrClient:
         if r.status_code != 200:
             raise Exception("jellyseerr user is not authenticated")
 
-    def make_request(self, item):
+    def make_request(self, item: JellyfinItem):
         """Request item from jellyseerr"""
 
         # Search for item
@@ -69,7 +76,7 @@ class JellyseerrClient:
             # Try IMDB match first
             if "mediaInfo" in result and "ImdbId" in result["mediaInfo"]:
                 imdb_id = result["mediaInfo"]["ImdbId"]
-                if imdb_id == item["imdb_id"]:
+                if "imdb_id" in item and imdb_id == item["imdb_id"]:
                     mediaId = result["id"]
                     logger.debug(f"Found exact IMDB match for {item['title']}")
                     break
@@ -102,14 +109,20 @@ class JellyseerrClient:
 if __name__ == "__main__":
     from pyaml_env import parse_config
 
-    config = parse_config(
-        "/home/thomas/Documents/Jellyfin-Auto-Collections/config.yaml"
+    config = cast(
+        Config,
+        parse_config(
+            "/home/thomas/Documents/Jellyfin-Auto-Collections/config.yaml"
+        ),
     )
+
+    if "jellyseerr" not in config:
+        raise Exception
 
     client = JellyseerrClient(
         server_url=config["jellyseerr"]["server_url"],
         api_key=config["jellyseerr"]["api_key"],
     )
     client.make_request(
-        {"title": "The Matrix", "imdb_id": "tt0133093", "release_year": 1999}
+        JellyfinItem(title="The Matrix", imdb_id="tt0133093", release_year=1999)
     )

@@ -1,8 +1,10 @@
 import math
 import os
 from io import BytesIO
+from typing import BinaryIO
 
 import requests
+from _typeshed import StrOrBytesPath
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
@@ -15,7 +17,7 @@ BACKGROUND_COLOR = (0, 0, 0)
 OVERLAY_PADDING = 50
 
 
-def get_font(url, font_dir="./fonts"):
+def get_font(url: str, font_dir: str = "./fonts"):
     """Download ttf from google font css"""
 
     font_name = url.split("family=")[1].split("&")[0]
@@ -38,7 +40,7 @@ def get_font(url, font_dir="./fonts"):
     # Download font
     r = requests.get(font_url)
     with open(font_path, "wb") as f:
-        f.write(r.content)
+        _ = f.write(r.content)
     r.raise_for_status()
     return font_path
 
@@ -46,7 +48,9 @@ def get_font(url, font_dir="./fonts"):
 # --- Data Fetching Functions ---
 
 
-def fetch_collection_posters(jellyfin_url, api_key, user_id, collection_id):
+def fetch_collection_posters(
+    jellyfin_url: str, api_key: str, user_id: str, collection_id: str
+) -> list[str]:
     """
     Fetches the poster URLs for all items in the specified collection.
     """
@@ -57,7 +61,7 @@ def fetch_collection_posters(jellyfin_url, api_key, user_id, collection_id):
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     items = response.json().get("Items", [])
-    poster_urls = []
+    poster_urls: list[str] = []
     for item in items:
         if "ImageTags" in item and "Primary" in item["ImageTags"]:
             poster_url = f"{jellyfin_url}/Items/{item['Id']}/Images/Primary?tag={item['ImageTags']['Primary']}"
@@ -68,7 +72,7 @@ def fetch_collection_posters(jellyfin_url, api_key, user_id, collection_id):
     return poster_urls
 
 
-def safe_download(url, headers):
+def safe_download(url: str, headers: dict[str, str]):
     """
     Download an image safely; return None if an error occurs.
     """
@@ -79,7 +83,7 @@ def safe_download(url, headers):
         return None
 
 
-def download_image(url, headers):
+def download_image(url: str, headers: dict[str, str]):
     """
     Downloads an image from a URL and returns a Pillow Image object.
     """
@@ -92,12 +96,17 @@ def download_image(url, headers):
 # --- Text and Font Functions ---
 
 
-def wrap_text(text, font, draw, max_width):
+def wrap_text(
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    draw: ImageDraw.ImageDraw,
+    max_width: int,
+) -> list[str]:
     """
     Wrap text into multiple lines so that each line's width doesn't exceed max_width.
     """
     words = text.split()
-    lines = []
+    lines: list[str] = []
     current_line = ""
     for word in words:
         test_line = current_line + (" " if current_line else "") + word
@@ -115,13 +124,13 @@ def wrap_text(text, font, draw, max_width):
 
 
 def get_adjusted_font_and_wrapped_text(
-    text,
-    draw,
-    max_width,
-    max_height,
-    font_file,
-    max_font_size=200,
-    min_font_size=20,
+    text: str,
+    draw: ImageDraw.ImageDraw,
+    max_width: int,
+    max_height: int,
+    font_file: StrOrBytesPath | BinaryIO,
+    max_font_size: int = 200,
+    min_font_size: int = 20,
 ):
     """
     Determines a font size that allows the text to be wrapped within max_width and max_height.
@@ -154,13 +163,13 @@ def get_adjusted_font_and_wrapped_text(
 
 
 def draw_text_with_shadow(
-    draw,
-    text,
-    position,
-    font,
-    shadow_size,
-    text_color="white",
-    shadow_color="black",
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    position: tuple[float, int],
+    font: ImageFont.FreeTypeFont,
+    shadow_size: int,
+    text_color: str = "white",
+    shadow_color: str = "black",
 ):
     """
     Draw text with a shadow effect at the specified position.
@@ -177,7 +186,12 @@ def draw_text_with_shadow(
 
 
 def draw_text_block(
-    draw, lines, font, total_text_height, overlay_y, overlay_height
+    draw: ImageDraw.ImageDraw,
+    lines: list[str],
+    font: ImageFont.FreeTypeFont,
+    total_text_height: int,
+    overlay_y: int,
+    overlay_height: int,
 ):
     """
     Draw the text block centered within the overlay area.
@@ -199,7 +213,7 @@ def draw_text_block(
 # --- Mosaic Creation Functions ---
 
 
-def create_mosaic_background(poster_images):
+def create_mosaic_background(poster_images: list[Image.Image]) -> Image.Image:
     """
     Create the mosaic background from poster images.
     Returns a blurred canvas with the images pasted in a grid that fills the entire canvas.
@@ -233,7 +247,11 @@ def create_mosaic_background(poster_images):
     return canvas.filter(ImageFilter.GaussianBlur(radius=10))
 
 
-def apply_text_overlay(image, collection_name, font_file):
+def apply_text_overlay(
+    image: Image.Image,
+    collection_name: str,
+    font_file: StrOrBytesPath | BinaryIO,
+):
     """
     Applies a semi-transparent overlay and draws the collection name centered within it.
     """
@@ -276,7 +294,12 @@ def apply_text_overlay(image, collection_name, font_file):
     )
 
 
-def create_mosaic(poster_images, collection_name, output_path, font_path):
+def create_mosaic(
+    poster_images: list[Image.Image],
+    collection_name: str,
+    output_path: StrOrBytesPath | BinaryIO,
+    font_path: StrOrBytesPath | BinaryIO,
+):
     """
     Creates the complete mosaic cover by combining the background and text overlay.
     """

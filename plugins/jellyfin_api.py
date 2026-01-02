@@ -1,14 +1,26 @@
+from typing import final
+
 import requests
 
+from definitions import (
+    JellyfinItem,
+    JellyfinPluginConfig,
+    ListIDItem,
+    PluginResult,
+)
 from utils.base_plugin import ListScraper
 
 
+@final
 class JellyfinAPI(ListScraper):
     """Generate collections based on Jellyfin API queries"""
 
     _alias_ = "jellyfin_api"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(
+        list_id: ListIDItem, config: JellyfinPluginConfig
+    ) -> PluginResult:
         """Call jellyfin API
         list_id should be a dict to pass to https://api.jellyfin.org/#tag/Items/operation/GetItems
         """
@@ -34,10 +46,10 @@ class JellyfinAPI(ListScraper):
         res = requests.get(
             f"{config['server_url']}/Users/{config['user_id']}/Items",
             headers={"X-Emby-Token": config["api_key"]},
-            params=params,
+            params=params,  # pyright: ignore[reportArgumentType]
         )
 
-        items = []
+        items: list[JellyfinItem] = []
         for item in res.json()["Items"]:
             items.append(
                 {

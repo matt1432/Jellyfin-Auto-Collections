@@ -1,14 +1,19 @@
+from typing import final
+
 import bs4
 import requests
 import yaml
 
+from definitions import BasePluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class ListMania(ListScraper):
     _alias_ = "listmania"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
         r = requests.get(f"https://www.listmania.org/list/{list_id}")
         soup = bs4.BeautifulSoup(r.text, "html.parser")
 
@@ -23,7 +28,7 @@ class ListMania(ListScraper):
         description = json_ld.get("description", "").strip()
 
         # Movies
-        items = []
+        items: list[JellyfinItem] = []
         item_list = json_ld.get("mainEntity", {}).get("itemListElement", [])
         for entry in item_list:
             item = entry.get("item", {})

@@ -1,7 +1,6 @@
 [tool.basedpyright]
-typeCheckingMode = "standard"
-reportMissingImports = "error"
-reportMissingTypeStubs = false
+allowedUntypedLibraries = ["apscheduler", "pluginlib", "pyaml_env"]
+reportAny = false
 
 [tool.ruff]
 target-version = "py313"

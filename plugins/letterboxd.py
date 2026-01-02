@@ -1,19 +1,24 @@
+from typing import cast, final
+
 import bs4
 import requests
 from loguru import logger
 from requests_cache import CachedSession
 
+from definitions import JellyfinItem, LetterboxdPluginConfig, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class Letterboxd(ListScraper):
     _alias_ = "letterboxd"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: LetterboxdPluginConfig) -> PluginResult:
         page_number = 1
         list_name = None
         description = None
-        movies = []
+        movies: list[JellyfinItem] = []
         config = config or {}
 
         # Cache for movie pages - so we don't have to refetch imdb_ids
@@ -48,7 +53,9 @@ class Letterboxd(ListScraper):
             soup = bs4.BeautifulSoup(r.text, "html.parser")
 
             if list_name is None:
-                list_name = soup.find("h1", {"class": "title-1 prettify"}).text  # type: ignore
+                list_name = cast(
+                    bs4.Tag, soup.find("h1", {"class": "title-1 prettify"})
+                ).text
 
             if description is None:
                 description = soup.find("div", {"class": "body-text"})
@@ -60,29 +67,38 @@ class Letterboxd(ListScraper):
                     description = ""
 
             if watchlist:
-                page = soup.find_all("li", {"class": "griditem"})  # type: ignore
+                page = soup.select("li.griditem")
             elif likeslist:
-                page = soup.find_all("li", {"class": "posteritem"})  # type: ignore
+                page = soup.select("li.posteritem")
             else:
-                page = soup.find_all("article")
+                page = soup.select("article")
 
             for movie_soup in page:
                 if watchlist or likeslist:
-                    movie = {
-                        "title": movie_soup.find("img").attrs["alt"],  # type: ignore
+                    movie: JellyfinItem = {
+                        "title": str(
+                            cast(bs4.Tag, movie_soup.find("img")).attrs["alt"]
+                        ),
                         "media_type": "movie",
+                        "release_year": None,
                     }
-                    link = movie_soup.find("div").attrs["data-target-link"]  # type: ignore
+                    link = cast(bs4.Tag, movie_soup.find("div")).attrs[
+                        "data-target-link"
+                    ]
                 else:
                     movie = {
-                        "title": movie_soup.find("h2").find("a").text,  # type: ignore
+                        "title": cast(
+                            bs4.Tag,
+                            cast(bs4.Tag, movie_soup.find("h2")).find("a"),
+                        ).text,
                         "media_type": "movie",
+                        "release_year": None,
                     }
-                    movie_year = movie_soup.find("small", {"class": "metadata"})  # type: ignore
+                    movie_year = movie_soup.find("small", {"class": "metadata"})
                     if movie_year is not None:
                         movie["release_year"] = movie_year.text.strip()
 
-                    link = movie_soup.find("a")["href"]  # type: ignore
+                    link = cast(bs4.Tag, movie_soup.find("a"))["href"]
 
                 if (
                     config.get("imdb_id_filter", False)
@@ -93,7 +109,7 @@ class Letterboxd(ListScraper):
                     )
 
                     # Find the imdb id and release year
-                    r = session.get(
+                    r = session.get(  # pyright: ignore[reportUnknownMemberType]
                         f"https://letterboxd.com{link}",
                         headers={"User-Agent": "Mozilla/5.0"},
                     )
@@ -101,15 +117,17 @@ class Letterboxd(ListScraper):
 
                     imdb_id = movie_soup.find(
                         "a",
-                        href=lambda href: href and "imdb.com/title" in href,  # type: ignore
+                        href=lambda href: href and "imdb.com/title" in href,  # pyright: ignore[reportArgumentType]
                     )
-                    movie_year = movie_soup.find("div", class_="details").find(  # type: ignore
-                        "span", class_="releasedate"
-                    )
+                    movie_year = cast(
+                        bs4.Tag, movie_soup.find("div", class_="details")
+                    ).find("span", class_="releasedate")
 
                     if imdb_id is not None:
                         movie["imdb_id"] = (
-                            imdb_id["href"].split("/title/")[1].split("/")[0]  # type: ignore
+                            str(imdb_id["href"])
+                            .split("/title/")[1]
+                            .split("/")[0]
                         )
 
                     if movie_year is not None:

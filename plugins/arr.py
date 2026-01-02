@@ -1,18 +1,24 @@
+from typing import final
+
 import requests
 from loguru import logger
 
+from definitions import ArrPluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class Arr(ListScraper):
     """Generate collections based on Jellyfin API queries"""
 
     _alias_ = "arr"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: ArrPluginConfig) -> PluginResult:
         """Call arr API"""
 
-        items = []
+        items: list[JellyfinItem] = []
+
         for server_config in config["server_configs"]:
             server_params = {"apikey": server_config["api_key"]}
 

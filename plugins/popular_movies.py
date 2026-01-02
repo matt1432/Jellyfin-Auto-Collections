@@ -1,14 +1,19 @@
+from typing import final
+
 import requests
 
+from definitions import BasePluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class PopularMovies(ListScraper):
     """Movies from stevenlu's nightly list"""
 
     _alias_ = "popular_movies"
 
-    def _is_valid_list_id(self, list_id):
+    @staticmethod
+    def _is_valid_list_id(list_id: str):
         if list_id in [
             "movies",
             "all-movies",
@@ -31,15 +36,16 @@ class PopularMovies(ListScraper):
             return True
         return False
 
-    def get_list(self, list_id, config):
-        if not self._is_valid_list_id(list_id):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+        if not PopularMovies._is_valid_list_id(list_id):
             raise Exception(f'Invalid list_id "{list_id}" for popular-movies')
 
         # Get the list name
         r = requests.get(
             f"https://popular-movies-data.stevenlu.com/{list_id}.json"
         )
-        items = []
+        items: list[JellyfinItem] = []
         for item in r.json():
             items.append(
                 {

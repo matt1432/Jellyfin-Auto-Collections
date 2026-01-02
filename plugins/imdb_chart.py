@@ -1,15 +1,19 @@
 import json
+from typing import cast, final
 
 import bs4
 import requests
 
+from definitions import BasePluginConfig, JellyfinItem, PluginResult
 from utils.base_plugin import ListScraper
 
 
+@final
 class IMDBChart(ListScraper):
     _alias_ = "imdb_chart"
 
-    def get_list(self, list_id, config):
+    @staticmethod
+    def get_list(list_id: str, config: BasePluginConfig) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
         res = requests.get(
             f"https://www.imdb.com/chart/{list_id}",
             headers={
@@ -18,12 +22,16 @@ class IMDBChart(ListScraper):
             },
         )
         soup = bs4.BeautifulSoup(res.text, "html.parser")
-        list_name = soup.find("title").text  # type: ignore
-        description = soup.find("meta", property="og:description")["content"]  # type: ignore
-        movies = []
+        list_name = cast(bs4.Tag, soup.find("title")).text
+        description = str(
+            cast(bs4.Tag, soup.find("meta", property="og:description"))[
+                "content"
+            ]
+        )
+        movies: list[JellyfinItem] = []
 
-        data = soup.find("script", id="__NEXT_DATA__")
-        data = json.loads(data.text)  # type: ignore
+        data = cast(bs4.Tag, soup.find("script", id="__NEXT_DATA__"))
+        data = json.loads(data.text)
 
         for movie in next(
             iter(data["props"]["pageProps"]["pageData"].values())
@@ -39,7 +47,7 @@ class IMDBChart(ListScraper):
                 )
                 soup = bs4.BeautifulSoup(res.text, "html.parser")
                 item_data = json.loads(
-                    soup.find("script", id="__NEXT_DATA__").text  # type: ignore
+                    cast(bs4.Tag, soup.find("script", id="__NEXT_DATA__")).text
                 )
                 movie = item_data["props"]["pageProps"]["aboveTheFoldData"]
 
@@ -60,4 +68,8 @@ class IMDBChart(ListScraper):
                     "imdb_id": imdb_id,
                 }
             )
-        return {"name": list_name, "items": movies, "description": description}
+        return {
+            "name": list_name,
+            "items": movies,
+            "description": description,
+        }

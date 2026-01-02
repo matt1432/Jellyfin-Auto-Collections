@@ -1,9 +1,12 @@
 import concurrent.futures
 import json
 from base64 import b64encode
+from typing import TypedDict, cast, final
 
 import requests
 from loguru import logger
+
+from definitions import JellyfinItem
 
 from .poster_generation import (
     create_mosaic,
@@ -13,7 +16,25 @@ from .poster_generation import (
 )
 
 
+class Collection(TypedDict):
+    Id: str
+    Name: str
+    Tags: list[str]
+    Overview: str
+
+
+class PItem(TypedDict):
+    Id: str
+    ProviderIds: dict[str, str]
+    ProductionYear: int
+
+
+@final
 class JellyfinClient:
+    server_url: str
+    api_key: str
+    user_id: str
+
     imdb_to_jellyfin_type_map = {
         "movie": ["Movie"],
         "short": ["Movie"],
@@ -33,7 +54,7 @@ class JellyfinClient:
 
         # Check if server is reachable
         try:
-            requests.get(self.server_url)
+            _ = requests.get(self.server_url)
         except requests.exceptions.ConnectionError:
             raise Exception("Server is not reachable")
 
@@ -56,7 +77,7 @@ class JellyfinClient:
         if res.status_code != 200:
             raise Exception("Invalid user id")
 
-    def get_all_collections(self):
+    def get_all_collections(self) -> list[Collection]:
         params = {
             "enableTotalRecordCount": "false",
             "enableImages": "false",
@@ -73,7 +94,11 @@ class JellyfinClient:
         return res.json()["Items"]
 
     def find_collection_with_name_or_create(
-        self, list_name: str, list_id: str, description: str, plugin_name: str
+        self,
+        list_name: str,
+        list_id: str,
+        description: str | None,
+        plugin_name: str,
     ) -> str:
         """Returns the collection id of the collection with the given name. If it doesn't exist, it creates a new collection and returns the id of the new collection."""
         collection_id = None
@@ -116,32 +141,34 @@ class JellyfinClient:
             collection_id = res2.json()["Id"]
 
         # Update collection description and add tags to we can find it later
-        if collection_id is not None:
-            collection = requests.get(
+        collection = cast(
+            Collection,
+            requests.get(
                 f"{self.server_url}/Users/{self.user_id}/Items/{collection_id}",
                 headers={"X-Emby-Token": self.api_key},
-            ).json()
-            if collection.get("Overview", "") == "" and description is not None:
-                collection["Overview"] = description
-            collection["Tags"] = list(
-                set(
-                    collection.get("Tags", [])
-                    + [
-                        "Jellyfin-Auto-Collections",
-                        plugin_name,
-                        json.dumps(list_id),
-                    ]
-                )
+            ).json(),
+        )
+        if collection.get("Overview", "") == "" and description is not None:
+            collection["Overview"] = description
+        collection["Tags"] = list(
+            set(
+                collection.get("Tags", [])
+                + [
+                    "Jellyfin-Auto-Collections",
+                    plugin_name,
+                    json.dumps(list_id),
+                ]
             )
-            requests.post(
-                f"{self.server_url}/Items/{collection_id}",
-                headers={"X-Emby-Token": self.api_key},
-                json=collection,
-            )
+        )
+        _ = requests.post(
+            f"{self.server_url}/Items/{collection_id}",
+            headers={"X-Emby-Token": self.api_key},
+            json=collection,
+        )
 
         return collection_id
 
-    def has_poster(self, collection_id):
+    def has_poster(self, collection_id: str):
         """Check if a collection already has a poster"""
         poster_url = f"{self.server_url}/Items/{collection_id}/Images/Primary"
         r = requests.get(poster_url, headers={"X-Emby-Token": self.api_key})
@@ -151,10 +178,10 @@ class JellyfinClient:
 
     def make_poster(
         self,
-        collection_id,
-        collection_name,
-        mosaic_limit=20,
-        google_font_url="https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap",
+        collection_id: str,
+        collection_name: str,
+        mosaic_limit: int = 20,
+        google_font_url: str = "https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap",
     ):
         # Check if collection poster exists
         poster_urls = fetch_collection_posters(
@@ -203,7 +230,7 @@ class JellyfinClient:
         encoded_data = b64encode(img_data)
 
         headers["Content-Type"] = "image/jpeg"
-        requests.post(
+        _ = requests.post(
             f"{self.server_url}/Items/{collection_id}/Images/Primary",
             headers=headers,
             data=encoded_data,
@@ -212,26 +239,30 @@ class JellyfinClient:
     def add_item_to_collection(
         self,
         collection_id: str,
-        item,
+        item: JellyfinItem,
         year_filter: bool = True,
-        jellyfin_query_parameters={},
-    ):
+        jellyfin_query_parameters: dict[str, str] | None = None,
+    ) -> bool:
         """Adds an item to a collection based on item name and release year"""
 
-        item["media_type"] = self.imdb_to_jellyfin_type_map.get(
-            item["media_type"], item["media_type"]
+        media_type = (
+            self.imdb_to_jellyfin_type_map.get(
+                item["media_type"], item["media_type"]
+            )
+            if "media_type" in item
+            else []
         )
 
         params = {
             "enableTotalRecordCount": "false",
             "enableImages": "false",
             "Recursive": "true",
-            "IncludeItemTypes": item["media_type"],
+            "IncludeItemTypes": media_type,
             "searchTerm": item["title"],
             "fields": ["ProviderIds", "ProductionYear"],
         }
 
-        params = {**params, **jellyfin_query_parameters}
+        params = {**params, **(jellyfin_query_parameters or {})}
 
         res = requests.get(
             f"{self.server_url}/Users/{self.user_id}/Items",
@@ -239,17 +270,19 @@ class JellyfinClient:
             params=params,
         )
 
+        items = cast(list[PItem], res.json()["Items"])
+
         # Check if there's an exact imdb_id match first
         match = None
         if "imdb_id" in item:
-            for result in res.json()["Items"]:
+            for result in items:
                 if result["ProviderIds"].get("Imdb", None) == item["imdb_id"]:
                     match = result
                     break
         else:
             # Check if there's a year match
             if match is None and year_filter:
-                for result in res.json()["Items"]:
+                for result in items:
                     if str(result.get("ProductionYear", None)) == str(
                         item["release_year"]
                     ):
@@ -257,8 +290,8 @@ class JellyfinClient:
                         break
 
             # Otherwise, just take the first result
-            if match is None and len(res.json()["Items"]) == 1:
-                match = res.json()["Items"][0]
+            if match is None and len(items) == 1:
+                match = items[0]
 
         if match is None:
             logger.warning(
@@ -270,7 +303,7 @@ class JellyfinClient:
         else:
             try:
                 item_id = match["Id"]
-                requests.post(
+                _ = requests.post(
                     f"{self.server_url}/Collections/{collection_id}/Items?ids={item_id}",
                     headers={"X-Emby-Token": self.api_key},
                 )
@@ -296,7 +329,7 @@ class JellyfinClient:
         # chunk ids into groups of 10
         all_ids = [all_ids[i : i + 10] for i in range(0, len(all_ids), 10)]
         for ids in all_ids:
-            requests.delete(
+            _ = requests.delete(
                 f"{self.server_url}/Collections/{collection_id}/Items",
                 headers={"X-Emby-Token": self.api_key},
                 params={"ids": ",".join(ids)},
