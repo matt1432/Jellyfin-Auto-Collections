@@ -161,6 +161,11 @@ class JellyfinClient:
                 ]
             )
         )
+        collection = {
+            **collection,
+            "Name": list_name,
+            "OriginalTitle": list_name,
+        }
         _ = requests.post(
             f"{self.server_url}/Items/{collection_id}",
             headers={"X-Emby-Token": self.api_key},
