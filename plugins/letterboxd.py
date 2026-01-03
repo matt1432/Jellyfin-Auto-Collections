@@ -21,7 +21,8 @@ class Letterboxd(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,
     ) -> PluginResult:
         if not isinstance(list_id, str):
             if "list_id" in list_id:
@@ -156,4 +157,9 @@ class Letterboxd(ListScraper):
                 page_number += 1
             else:
                 break
-        return {"name": list_name, "items": movies, "description": description}
+
+        return {
+            "name": list_name,
+            "items": movies,
+            "description": description,
+        }

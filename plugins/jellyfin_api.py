@@ -20,7 +20,8 @@ class JellyfinAPI(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,
     ) -> PluginResult:
         """Call jellyfin API
         list_id should be a dict to pass to https://api.jellyfin.org/#tag/Items/operation/GetItems
@@ -65,4 +66,8 @@ class JellyfinAPI(ListScraper):
                 }
             )
 
-        return {"name": list_name, "description": list_desc, "items": items}
+        return {
+            "name": list_name,
+            "description": list_desc,
+            "items": items,
+        }

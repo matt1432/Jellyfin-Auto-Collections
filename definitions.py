@@ -97,5 +97,6 @@ class PluginResult(TypedDict):
 class ListScraperClass(Protocol):
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,
     ) -> PluginResult: ...

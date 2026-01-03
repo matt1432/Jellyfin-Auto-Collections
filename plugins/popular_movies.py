@@ -38,8 +38,9 @@ class PopularMovies(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
-    ) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,  # pyright: ignore[reportUnusedParameter]
+    ) -> PluginResult:
         if not isinstance(list_id, str):
             if "list_id" in list_id:
                 list_id = list_id["list_id"]

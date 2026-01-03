@@ -14,8 +14,9 @@ class ListMania(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
-    ) -> PluginResult:  # pyright: ignore[reportUnusedParameter]
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,  # pyright: ignore[reportUnusedParameter]
+    ) -> PluginResult:
         if not isinstance(list_id, str):
             if "list_id" in list_id:
                 list_id = list_id["list_id"]
@@ -58,4 +59,8 @@ class ListMania(ListScraper):
                 }
             )
 
-        return {"name": list_name, "description": description, "items": items}
+        return {
+            "name": list_name,
+            "description": description,
+            "items": items,
+        }

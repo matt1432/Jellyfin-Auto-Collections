@@ -142,7 +142,8 @@ class Trakt(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,
     ) -> PluginResult:
         if not isinstance(list_id, str):
             if "list_id" in list_id:
@@ -248,4 +249,8 @@ class Trakt(ListScraper):
                 )
             )
 
-        return {"name": list_name, "description": description, "items": items}
+        return {
+            "name": list_name,
+            "description": description,
+            "items": items,
+        }
