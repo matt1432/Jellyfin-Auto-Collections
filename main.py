@@ -9,7 +9,12 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 from pyaml_env import parse_config
 
-from definitions import BasePluginConfig, Config, ListScraperClass
+from definitions import (
+    BasePluginConfig,
+    Config,
+    JellyfinImageType,
+    ListScraperClass,
+)
 from utils.jellyfin import JellyfinClient
 from utils.jellyseerr import JellyseerrClient
 
@@ -92,11 +97,20 @@ def main(config: Config):
                 if isinstance(list_entry, str):
                     list_id = list_entry
                     list_name = None
+                    list_images = None
                 else:
                     if "list_id" in list_entry:
                         list_id = list_entry["list_id"]
                     else:
                         list_id = str(list_entry)
+
+                    list_images = (
+                        list_entry["images"]
+                        if "images" in list_entry
+                        and isinstance(list_entry["images"], dict)  # pyright: ignore[reportUnnecessaryIsInstance]
+                        else None
+                    )
+
                     list_name = list_entry.get("list_name", None)
 
                 logger.info("")
@@ -135,8 +149,23 @@ def main(config: Config):
                     if not matched and js_client is not None:
                         js_client.make_request(item)
 
+                if list_images is not None:
+                    for image_type, path_or_url in list_images.items():
+                        parsed_type = image_type.lower().capitalize()
+
+                        if (
+                            parsed_type
+                            in JellyfinImageType.__members__.values()
+                        ):
+                            jf_client.set_poster(
+                                collection_id=collection_id,
+                                collection_name=list_name or list_info["name"],
+                                image_type=JellyfinImageType(parsed_type),
+                                url=path_or_url,
+                            )
+
                 # Add a poster image if collection doesn't have one
-                if not jf_client.has_poster(collection_id):
+                elif not jf_client.has_poster(collection_id):
                     logger.info("Collection has no poster - generating one")
                     jf_client.make_poster(collection_id, list_info["name"])
 

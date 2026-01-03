@@ -1,5 +1,6 @@
 import concurrent.futures
 import json
+import os
 from base64 import b64encode
 from typing import TypedDict, cast, final
 
@@ -182,19 +183,18 @@ class JellyfinClient:
         collection_id: str,
         collection_name: str,
         image_type: JellyfinImageType = JellyfinImageType.PRIMARY,
-        url: str | None = None,
-        path: str | None = None,
+        url: str,
     ):
         safe_name = collection_name.replace(" ", "_").replace("/", "_")
-        output_path = f"/tmp/{safe_name}_cover.jpg"
+        output_path = f"/tmp/{safe_name}_{image_type}.jpg"
 
         from PIL import Image
 
         img = None
-        if path is not None:
-            img = Image.open(path)  # or whatever format
+        if os.path.exists(url):
+            img = Image.open(url)  # or whatever format
             img = img.convert("RGB")  # Ensures it's safe for JPEG
-        elif url is not None:
+        else:
             img = safe_download(url, {})
 
         if img is None:
@@ -260,7 +260,7 @@ class JellyfinClient:
         self.set_poster(
             collection_id=collection_id,
             collection_name=collection_name,
-            path=output_path,
+            url=output_path,
         )
 
     def add_item_to_collection(

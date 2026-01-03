@@ -36,6 +36,7 @@ class ListIDItem(TypedDict, total=False):
     list_name: str
     list_id: str
     list_desc: str
+    images: dict[str, str]
 
 
 class BasePluginConfig(TypedDict, total=False):
