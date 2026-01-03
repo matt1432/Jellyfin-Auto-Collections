@@ -101,7 +101,7 @@ class _JellyfinItem(TypedDict):
 
 
 class JellyfinItem(_JellyfinItem, total=False):
-    media_type: str
+    media_type: str | None
     imdb_id: str | None
 
 

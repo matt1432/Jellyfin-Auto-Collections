@@ -281,7 +281,7 @@ class JellyfinClient:
             self.imdb_to_jellyfin_type_map.get(
                 item["media_type"], item["media_type"]
             )
-            if "media_type" in item
+            if "media_type" in item and item["media_type"] is not None
             else []
         )
 
@@ -326,11 +326,21 @@ class JellyfinClient:
                 match = items[0]
 
         if match is None:
-            logger.warning(
-                f"Item {item['title']} ({item.get('release_year', 'N/A')}) {item.get('imdb_id', '')} not found in jellyfin"
-            )
-            logger.debug(f"List Candidate: {item}")
-            logger.debug(f"JF Search: {res.json()['Items']}")
+            # Try searching all media types before assuming it does not exist
+            # Only end when media_type is [], meaning we searched all media_types
+            if len(media_type) != 0:
+                return self.add_item_to_collection(
+                    collection_id,
+                    item={**item, "media_type": None},
+                    year_filter=year_filter,
+                    jellyfin_query_parameters=jellyfin_query_parameters,
+                )
+            else:
+                logger.warning(
+                    f"Item {item['title']} ({item.get('release_year', 'N/A')}) {item.get('imdb_id', '')} not found in jellyfin"
+                )
+                logger.debug(f"List Candidate: {item}")
+                logger.debug(f"JF Search: {res.json()['Items']}")
             return False
         else:
             try:

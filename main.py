@@ -138,14 +138,19 @@ def main(config: Config):
 
                 # Add items to the collection
                 for item in list_info["items"]:
+                    year_filter = plugin_config.get("year_filter", True)
+                    jellyfin_query_parameters = config["jellyfin"].get(
+                        "query_parameters", {}
+                    )
+
                     matched = jf_client.add_item_to_collection(
                         collection_id,
                         item,
-                        year_filter=plugin_config.get("year_filter", True),
-                        jellyfin_query_parameters=config["jellyfin"].get(
-                            "query_parameters", {}
-                        ),
+                        year_filter=year_filter,
+                        jellyfin_query_parameters=jellyfin_query_parameters,
                     )
+
+                    # Automatically request it on JellySeerr if not found
                     if not matched and js_client is not None:
                         js_client.make_request(item)
 
