@@ -98,6 +98,7 @@ def main(config: Config):
                     list_id = list_entry
                     list_name = None
                     list_images = None
+                    list_desc = None
                 else:
                     if "list_id" in list_entry:
                         list_id = list_entry["list_id"]
@@ -112,6 +113,7 @@ def main(config: Config):
                     )
 
                     list_name = list_entry.get("list_name", None)
+                    list_desc = list_entry.get("list_desc", None)
 
                 logger.info("")
                 logger.info("")
@@ -128,7 +130,9 @@ def main(config: Config):
                 collection_id = jf_client.find_collection_with_name_or_create(
                     list_name or list_info["name"],
                     list_id,
-                    list_info.get("description", None),
+                    list_desc
+                    if list_desc is not None
+                    else list_info.get("description", None),
                     plugin_name,
                 )
 

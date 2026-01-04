@@ -141,7 +141,7 @@ class JellyfinClient:
             )
             collection_id = res2.json()["Id"]
 
-        # Update collection description and add tags to we can find it later
+        # Update collection description and add tags so we can find it later
         collection = cast(
             Collection,
             requests.get(
@@ -149,7 +149,7 @@ class JellyfinClient:
                 headers={"X-Emby-Token": self.api_key},
             ).json(),
         )
-        if collection.get("Overview", "") == "" and description is not None:
+        if description is not None:
             collection["Overview"] = description
         collection["Tags"] = list(
             set(
