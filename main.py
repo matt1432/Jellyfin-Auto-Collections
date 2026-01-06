@@ -33,7 +33,7 @@ args = parser.parse_args(namespace=Namespace())
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 # Configure Loguru logger
 logger.remove()  # Remove default configuration
-_ = logger.add(sys.stderr, level=log_level)
+_ = logger.add(sys.stderr, format="{level} {message}", level=log_level)
 
 # Load config
 if not os.path.exists(args.config):
@@ -45,6 +45,7 @@ if not os.path.exists(args.config):
 config = cast(Config, parse_config(args.config))
 
 
+# TODO: add way to declare collections which also have collections
 def main(config: Config):
     # Setup jellyfin connection
     jf_client = JellyfinClient(
