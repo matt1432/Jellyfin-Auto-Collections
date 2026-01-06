@@ -32,11 +32,23 @@ class JellyseerrConfig(TypedDict):
     user_type: str
 
 
+class _JellyfinItem(TypedDict):
+    title: str
+
+
+class JellyfinItem(_JellyfinItem, total=False):
+    release_year: int | None
+    media_type: str | None
+    imdb_id: str | None
+    tmdb_id: str | None
+
+
 class ListIDItem(TypedDict, total=False):
     list_name: str
     list_id: str
     list_desc: str
     images: dict[str, str]
+    items: list[JellyfinItem]
 
 
 class BasePluginConfig(TypedDict, total=False):
@@ -82,6 +94,7 @@ class PluginsConfig(TypedDict, total=False):
     criterion_channel: BasePluginConfig
     listmania: BasePluginConfig
     bfi: BasePluginConfig
+    local: BasePluginConfig
 
 
 class _Config(TypedDict):
@@ -93,16 +106,6 @@ class Config(_Config, total=False):
     crontab: str
     timezone: str
     jellyseerr: JellyseerrConfig
-
-
-class _JellyfinItem(TypedDict):
-    title: str
-    release_year: int | None
-
-
-class JellyfinItem(_JellyfinItem, total=False):
-    media_type: str | None
-    imdb_id: str | None
 
 
 class PluginResult(TypedDict):

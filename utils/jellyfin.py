@@ -311,13 +311,18 @@ class JellyfinClient:
                 if result["ProviderIds"].get("Imdb", None) == item["imdb_id"]:
                     match = result
                     break
+        elif "tmdb_id" in item:
+            for result in items:
+                if result["ProviderIds"].get("Tmdb", None) == item["tmdb_id"]:
+                    match = result
+                    break
         else:
             # Check if there's a year match
             if match is None and year_filter:
                 for result in items:
-                    if str(result.get("ProductionYear", None)) == str(
-                        item["release_year"]
-                    ):
+                    if "release_year" in item and str(
+                        result.get("ProductionYear", None)
+                    ) == str(item["release_year"]):
                         match = result
                         break
 

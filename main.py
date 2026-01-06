@@ -45,7 +45,6 @@ if not os.path.exists(args.config):
 config = cast(Config, parse_config(args.config))
 
 
-# TODO: add way to declare collections which also have collections
 def main(config: Config):
     # Setup jellyfin connection
     jf_client = JellyfinClient(
@@ -100,6 +99,7 @@ def main(config: Config):
                     list_name = None
                     list_images = None
                     list_desc = None
+                    list_extra_items = []
                 else:
                     if "list_id" in list_entry:
                         list_id = list_entry["list_id"]
@@ -115,6 +115,7 @@ def main(config: Config):
 
                     list_name = list_entry.get("list_name", None)
                     list_desc = list_entry.get("list_desc", None)
+                    list_extra_items = list_entry.get("items", [])
 
                 logger.info("")
                 logger.info("")
@@ -126,6 +127,7 @@ def main(config: Config):
                 list_info = plugins[plugin_name].get_list(
                     list_entry, plugin_config
                 )
+                list_info["items"].extend(list_extra_items)
 
                 # Find jellyfin collection or create it
                 collection_id = jf_client.find_collection_with_name_or_create(
@@ -177,7 +179,9 @@ def main(config: Config):
                 # Add a poster image if collection doesn't have one
                 elif not jf_client.has_poster(collection_id):
                     logger.info("Collection has no poster - generating one")
-                    jf_client.make_poster(collection_id, list_info["name"])
+                    jf_client.make_poster(
+                        collection_id, list_name or list_info["name"]
+                    )
 
 
 if __name__ == "__main__":

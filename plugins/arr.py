@@ -21,7 +21,8 @@ class Arr(ListScraper):
 
     @staticmethod
     def get_list(
-        list_id: str | ListIDItem, config: BasePluginConfig
+        list_id: str | ListIDItem,
+        config: BasePluginConfig,
     ) -> PluginResult:
         """Call arr API"""
 
