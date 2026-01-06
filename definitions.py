@@ -41,6 +41,8 @@ class JellyfinItem(_JellyfinItem, total=False):
     media_type: str | None
     imdb_id: str | None
     tmdb_id: str | None
+    tvdb_id: str | None
+    series: str | None
 
 
 class ListIDItem(TypedDict, total=False):

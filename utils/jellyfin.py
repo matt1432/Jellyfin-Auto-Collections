@@ -40,6 +40,7 @@ class JellyfinClient:
         "movie": ["Movie"],
         "short": ["Movie"],
         "tvEpisode": ["TvProgram", "Episode"],
+        "tvSeason": ["Season"],
         "tvSeries": ["Program", "Series"],
         "tvShort": ["TvProgram", "Episode", "Program"],
         "tvMiniSeries": ["Program", "Series"],
@@ -311,9 +312,22 @@ class JellyfinClient:
                 if result["ProviderIds"].get("Imdb", None) == item["imdb_id"]:
                     match = result
                     break
+
         elif "tmdb_id" in item:
             for result in items:
                 if result["ProviderIds"].get("Tmdb", None) == item["tmdb_id"]:
+                    match = result
+                    break
+
+        elif "tvdb_id" in item:
+            for result in items:
+                if result["ProviderIds"].get("Tvdb", None) == item["tvdb_id"]:
+                    match = result
+                    break
+
+        elif "series" in item:
+            for result in items:
+                if result.get("SeriesName", None) == item["series"]:
                     match = result
                     break
         else:
