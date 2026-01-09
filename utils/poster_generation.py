@@ -49,16 +49,19 @@ def get_font(url: str, font_dir: str = "./fonts"):
 # --- Data Fetching Functions ---
 
 
-def fetch_collection_posters(
-    jellyfin_url: str, api_key: str, user_id: str, collection_id: str
+def fetch_item_posters(
+    jellyfin_url: str,
+    api_key: str,
+    user_id: str,
+    item_id: str,
 ) -> list[str]:
     """
-    Fetches the poster URLs for all items in the specified collection.
+    Fetches the poster URLs for all items in the specified item.
     """
-    logger.info(f"Fetching posters for collection ID {collection_id}...")
+    logger.info(f"Fetching posters for item ID {item_id}...")
     headers = {"X-Emby-Token": api_key}
     url = f"{jellyfin_url}/Users/{user_id}/Items"
-    params = {"parentId": collection_id}
+    params = {"parentId": item_id}
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     items = response.json().get("Items", [])
@@ -67,9 +70,7 @@ def fetch_collection_posters(
         if "ImageTags" in item and "Primary" in item["ImageTags"]:
             poster_url = f"{jellyfin_url}/Items/{item['Id']}/Images/Primary?tag={item['ImageTags']['Primary']}"
             poster_urls.append(poster_url)
-    logger.info(
-        f"Found {len(poster_urls)} poster(s) for collection ID {collection_id}."
-    )
+    logger.info(f"Found {len(poster_urls)} poster(s) for item ID {item_id}.")
     return poster_urls
 
 
@@ -250,18 +251,18 @@ def create_mosaic_background(poster_images: list[Image.Image]) -> Image.Image:
 
 def apply_text_overlay(
     image: Image.Image,
-    collection_name: str,
+    item_name: str,
     font_file: StrOrBytesPath | BinaryIO,
 ):
     """
-    Applies a semi-transparent overlay and draws the collection name centered within it.
+    Applies a semi-transparent overlay and draws the item name centered within it.
     """
     draw = ImageDraw.Draw(image)
     max_text_width = int(CANVAS_WIDTH * 0.8)
     max_text_height = int(CANVAS_HEIGHT * 0.3)
 
     font, lines, total_text_height = get_adjusted_font_and_wrapped_text(
-        collection_name.upper(),
+        item_name.upper(),
         draw,
         max_text_width,
         max_text_height,
@@ -297,7 +298,7 @@ def apply_text_overlay(
 
 def create_mosaic(
     poster_images: list[Image.Image],
-    collection_name: str,
+    item_name: str,
     output_path: StrOrBytesPath | BinaryIO,
     font_path: StrOrBytesPath | BinaryIO,
 ):
@@ -306,6 +307,6 @@ def create_mosaic(
     """
     logger.debug("Starting mosaic creation...")
     blurred = create_mosaic_background(poster_images)
-    apply_text_overlay(blurred, collection_name, font_path)
+    apply_text_overlay(blurred, item_name, font_path)
     blurred.save(output_path)
     logger.debug(f"Cover art saved to {output_path}")

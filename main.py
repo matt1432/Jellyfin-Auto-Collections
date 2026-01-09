@@ -12,6 +12,7 @@ from pyaml_env import parse_config
 from definitions import (
     BasePluginConfig,
     Config,
+    ItemType,
     JellyfinImageType,
     ListScraperClass,
 )
@@ -84,6 +85,8 @@ def main(config: Config):
             "api_key"
         ]
 
+    jellyfin_query_parameters = config["jellyfin"].get("query_parameters", {})
+
     # Update jellyfin with lists
     for plugin_name in config["plugins"]:
         plugin_config = cast(BasePluginConfig, config["plugins"][plugin_name])
@@ -95,6 +98,7 @@ def main(config: Config):
         ):
             for list_entry in plugin_config["list_ids"]:
                 if isinstance(list_entry, str):
+                    list_type = "collection"
                     list_id = list_entry
                     list_name = None
                     list_images = None
@@ -113,6 +117,9 @@ def main(config: Config):
                         else None
                     )
 
+                    list_type: ItemType = list_entry.get(
+                        "list_type", "collection"
+                    )
                     list_name = list_entry.get("list_name", None)
                     list_desc = list_entry.get("list_desc", None)
                     list_extra_items = list_entry.get("items", [])
@@ -129,29 +136,32 @@ def main(config: Config):
                 )
                 list_info["items"].extend(list_extra_items)
 
-                # Find jellyfin collection or create it
-                collection_id = jf_client.find_collection_with_name_or_create(
-                    list_name or list_info["name"],
-                    list_id,
+                list_name = list_name or list_info["name"]
+                list_desc = (
                     list_desc
                     if list_desc is not None
-                    else list_info.get("description", None),
-                    plugin_name,
+                    else list_info.get("description", None)
+                )
+
+                # Find jellyfin collection or create it
+                parent_item_id = jf_client.find_item_with_name_or_create(
+                    list_name=list_name,
+                    list_id=list_id,
+                    description=list_desc,
+                    plugin_name=plugin_name,
+                    item_type=list_type,
                 )
 
                 if plugin_config.get("clear_collection", False):
                     # Optionally clear everything from the collection first
-                    jf_client.clear_collection(collection_id)
+                    jf_client.clear_item(parent_item_id)
 
                 # Add items to the collection
                 for item in list_info["items"]:
                     year_filter = plugin_config.get("year_filter", True)
-                    jellyfin_query_parameters = config["jellyfin"].get(
-                        "query_parameters", {}
-                    )
 
-                    matched = jf_client.add_item_to_collection(
-                        collection_id,
+                    matched = jf_client.add_item_to_parent(
+                        parent_item_id,
                         item,
                         year_filter=year_filter,
                         jellyfin_query_parameters=jellyfin_query_parameters,
@@ -170,17 +180,18 @@ def main(config: Config):
                             in JellyfinImageType.__members__.values()
                         ):
                             jf_client.set_poster(
-                                collection_id=collection_id,
-                                collection_name=list_name or list_info["name"],
+                                item_id=parent_item_id,
+                                item_name=list_name,
                                 image_type=JellyfinImageType(parsed_type),
                                 url=path_or_url,
                             )
 
                 # Add a poster image if collection doesn't have one
-                elif not jf_client.has_poster(collection_id):
+                elif not jf_client.has_poster(parent_item_id):
                     logger.info("Collection has no poster - generating one")
                     jf_client.make_poster(
-                        collection_id, list_name or list_info["name"]
+                        parent_item_id,
+                        list_name,
                     )
 
 

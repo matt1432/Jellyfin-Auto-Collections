@@ -7,17 +7,17 @@ from typing import TypedDict, cast, final
 import requests
 from loguru import logger
 
-from definitions import JellyfinImageType, JellyfinItem
+from definitions import ItemType, JellyfinImageType, JellyfinItem
 
 from .poster_generation import (
     create_mosaic,
-    fetch_collection_posters,
+    fetch_item_posters,
     get_font,
     safe_download,
 )
 
 
-class Collection(TypedDict):
+class Item(TypedDict):
     Id: str
     Name: str
     Tags: list[str]
@@ -35,6 +35,12 @@ class JellyfinClient:
     server_url: str
     api_key: str
     user_id: str
+    item_type: ItemType = "collection"
+
+    item_type_to_jellyfin_type_map = {
+        "collection": "BoxSet",
+        "playlist": "Playlist",
+    }
 
     imdb_to_jellyfin_type_map = {
         "movie": ["Movie"],
@@ -79,15 +85,17 @@ class JellyfinClient:
         if res.status_code != 200:
             raise Exception("Invalid user id")
 
-    def get_all_collections(self) -> list[Collection]:
+    def get_items_of_type(self, item_type: ItemType) -> list[Item]:
         params = {
             "enableTotalRecordCount": "false",
             "enableImages": "false",
             "Recursive": "true",
-            "includeItemTypes": "BoxSet",
+            "includeItemTypes": self.item_type_to_jellyfin_type_map.get(
+                item_type, None
+            ),
             "fields": ["Name", "Id", "Tags"],
         }
-        logger.info("Getting collections list...")
+        logger.info(f"Getting {item_type}s list...")
         res = requests.get(
             f"{self.server_url}/Users/{self.user_id}/Items",
             headers={"X-Emby-Token": self.api_key},
@@ -95,66 +103,84 @@ class JellyfinClient:
         )
         return res.json()["Items"]
 
-    def find_collection_with_name_or_create(
+    def find_item_with_name_or_create(
         self,
+        *,
+        item_type: ItemType,
         list_name: str,
         list_id: str,
         description: str | None,
         plugin_name: str,
     ) -> str:
-        """Returns the collection id of the collection with the given name. If it doesn't exist, it creates a new collection and returns the id of the new collection."""
-        collection_id = None
-        collections = self.get_all_collections()
+        """Returns the item id of the item with the given name. If it doesn't exist, it creates a new item and returns the id of the new item."""
+        self.item_type = item_type
+
+        item_id = None
+        items = self.get_items_of_type(self.item_type)
 
         # Check if list name in tags
-        for collection in collections:
-            if json.dumps(list_id) in collection["Tags"]:
-                collection_id = collection["Id"]
+        for item in items:
+            if json.dumps(list_id) in item["Tags"]:
+                item_id = item["Id"]
                 break
 
-        # if no match - Check if list name == collection name
-        if collection_id is None:
-            for collection in collections:
-                if list_name == collection["Name"]:
-                    collection_id = collection["Id"]
+        # if no match - Check if list name == item name
+        if item_id is None:
+            for item in items:
+                if list_name == item["Name"]:
+                    item_id = item["Id"]
                     break
 
-        if collection_id is not None:
+        if item_id is not None:
             logger.info(
-                "found existing collection: "
+                f"found existing {self.item_type}: "
                 + list_name
                 + " ("
-                + collection_id
+                + item_id
                 + ")"
             )
 
-        if collection_id is None:
-            # Collection doesn't exist -> Make a new one
+        if item_id is None:
+            # item doesn't exist -> Make a new one
             logger.info(
-                "No matching collection found for: "
+                f"No matching {self.item_type} found for: "
                 + list_name
-                + ". Creating new collection..."
+                + f". Creating new {self.item_type}..."
             )
-            res2 = requests.post(
-                f"{self.server_url}/Collections",
-                headers={"X-Emby-Token": self.api_key},
-                params={"name": list_name},
-            )
-            collection_id = res2.json()["Id"]
+            if self.item_type == "collection":
+                res2 = requests.post(
+                    f"{self.server_url}/Collections",
+                    headers={"X-Emby-Token": self.api_key},
+                    params={"name": list_name},
+                )
+            else:  # if self.item_type == "playlist":
+                res2 = requests.post(
+                    f"{self.server_url}/Playlists",
+                    headers={"X-Emby-Token": self.api_key},
+                    json={
+                        "Name": list_name,
+                        "Ids": [],
+                        "UserId": self.user_id,
+                        "MediaType": "Video",
+                        "Users": [],
+                        "IsPublic": True,
+                    },
+                )
+            item_id = res2.json()["Id"]
 
-        # Update collection description and add tags so we can find it later
-        collection = cast(
-            Collection,
+        # Update item description and add tags so we can find it later
+        item = cast(
+            Item,
             requests.get(
-                f"{self.server_url}/Users/{self.user_id}/Items/{collection_id}",
+                f"{self.server_url}/Users/{self.user_id}/Items/{item_id}",
                 headers={"X-Emby-Token": self.api_key},
             ).json(),
         )
         if description is not None:
-            collection["Overview"] = description
-        collection["Tags"] = list(
+            item["Overview"] = description
+        item["Tags"] = list(
             set(
-                collection.get("Tags", [])
+                item.get("Tags", [])
                 + [
                     "Jellyfin-Auto-Collections",
                     plugin_name,
@@ -162,22 +188,23 @@ class JellyfinClient:
                 ]
             )
         )
-        collection = {
-            **collection,
+        item = {
+            **item,
             "Name": list_name,
-            "OriginalTitle": list_name,
         }
+        if self.item_type == "collection":
+            item["OriginalTitle"] = list_name
         _ = requests.post(
-            f"{self.server_url}/Items/{collection_id}",
+            f"{self.server_url}/Items/{item_id}",
             headers={"X-Emby-Token": self.api_key},
-            json=collection,
+            json=item,
         )
 
-        return collection_id
+        return item_id
 
-    def has_poster(self, collection_id: str):
-        """Check if a collection already has a poster"""
-        poster_url = f"{self.server_url}/Items/{collection_id}/Images/Primary"
+    def has_poster(self, item_id: str):
+        """Check if an item already has a poster"""
+        poster_url = f"{self.server_url}/Items/{item_id}/Images/Primary"
         r = requests.get(poster_url, headers={"X-Emby-Token": self.api_key})
         if r.status_code == 404:
             return False
@@ -186,12 +213,12 @@ class JellyfinClient:
     def set_poster(
         self,
         *,
-        collection_id: str,
-        collection_name: str,
+        item_id: str,
+        item_name: str,
         image_type: JellyfinImageType = JellyfinImageType.PRIMARY,
         url: str,
     ):
-        safe_name = collection_name.replace(" ", "_").replace("/", "_")
+        safe_name = item_name.replace(" ", "_").replace("/", "_")
         output_path = f"/tmp/{safe_name}_{image_type}.jpg"
 
         from PIL import Image
@@ -217,21 +244,21 @@ class JellyfinClient:
             "Content-Type": "image/jpeg",
         }
         _ = requests.post(
-            f"{self.server_url}/Items/{collection_id}/Images/{image_type}",
+            f"{self.server_url}/Items/{item_id}/Images/{image_type}",
             headers=headers,
             data=encoded_data,
         )
 
     def make_poster(
         self,
-        collection_id: str,
-        collection_name: str,
+        item_id: str,
+        item_name: str,
         mosaic_limit: int = 20,
         google_font_url: str = "https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap",
     ):
-        # Check if collection poster exists
-        poster_urls = fetch_collection_posters(
-            self.server_url, self.api_key, self.user_id, collection_id
+        # Check if item poster exists
+        poster_urls = fetch_item_posters(
+            self.server_url, self.api_key, self.user_id, item_id
         )[:mosaic_limit]
         headers = {"X-Emby-Token": self.api_key}
 
@@ -252,31 +279,29 @@ class JellyfinClient:
         font_path = get_font(google_font_url)
 
         if poster_images:
-            safe_name = collection_name.replace(" ", "_").replace("/", "_")
+            safe_name = item_name.replace(" ", "_").replace("/", "_")
             output_path = f"/tmp/{safe_name}_cover.jpg"
-            create_mosaic(
-                poster_images, collection_name, output_path, font_path
-            )
+            create_mosaic(poster_images, item_name, output_path, font_path)
         else:
             logger.warning(
-                f"No posters available for collection '{collection_name}'. Skipping mosaic generation."
+                f"No posters available for item '{item_name}'. Skipping mosaic generation."
             )
             return
 
         self.set_poster(
-            collection_id=collection_id,
-            collection_name=collection_name,
+            item_id=item_id,
+            item_name=item_name,
             url=output_path,
         )
 
-    def add_item_to_collection(
+    def add_item_to_parent(
         self,
-        collection_id: str,
+        parent_item_id: str,
         item: JellyfinItem,
         year_filter: bool = True,
         jellyfin_query_parameters: dict[str, str] | None = None,
     ) -> bool:
-        """Adds an item to a collection based on item name and release year"""
+        """Adds an item to a parent item based on item name and release year"""
 
         media_type = (
             self.imdb_to_jellyfin_type_map.get(
@@ -348,8 +373,8 @@ class JellyfinClient:
             # Try searching all media types before assuming it does not exist
             # Only end when media_type is [], meaning we searched all media_types
             if len(media_type) != 0:
-                return self.add_item_to_collection(
-                    collection_id,
+                return self.add_item_to_parent(
+                    parent_item_id,
                     item={**item, "media_type": None},
                     year_filter=year_filter,
                     jellyfin_query_parameters=jellyfin_query_parameters,
@@ -364,13 +389,23 @@ class JellyfinClient:
         else:
             try:
                 item_id = match["Id"]
-                _ = requests.post(
-                    f"{self.server_url}/Collections/{collection_id}/Items?ids={item_id}",
-                    headers={"X-Emby-Token": self.api_key},
-                )
-                logger.info(f"Added {item['title']} to collection")
-                logger.debug(f"\tList item: {item}")
-                logger.debug(f"\tMatched JF item: {match}")
+                if self.item_type == "collection":
+                    _ = requests.post(
+                        f"{self.server_url}/Collections/{parent_item_id}/Items?ids={item_id}",
+                        headers={"X-Emby-Token": self.api_key},
+                    )
+                else:
+                    _ = requests.post(
+                        f"{self.server_url}/Playlists/{parent_item_id}/Items",
+                        headers={"X-Emby-Token": self.api_key},
+                        params={
+                            "ids": item_id,
+                            "userId": self.user_id,
+                        },
+                    )
+                logger.info(f"Added {item['title']} to {self.item_type}")
+                logger.debug(f"    List item: {item}")
+                logger.debug(f"    Matched JF item: {match}")
                 return True
             except json.decoder.JSONDecodeError:
                 logger.error(
@@ -378,22 +413,32 @@ class JellyfinClient:
                 )
         return False
 
-    def clear_collection(self, collection_id: str):
+    def clear_item(
+        self,
+        item_id: str,
+    ):
         """Clears a collection by removing all items from it"""
         res = requests.get(
             f"{self.server_url}/Users/{self.user_id}/Items",
             headers={"X-Emby-Token": self.api_key},
-            params={"Recursive": "true", "parentId": collection_id},
+            params={"Recursive": "true", "parentId": item_id},
         )
         all_ids = [item["Id"] for item in res.json()["Items"]]
 
         # chunk ids into groups of 10
         all_ids = [all_ids[i : i + 10] for i in range(0, len(all_ids), 10)]
         for ids in all_ids:
-            _ = requests.delete(
-                f"{self.server_url}/Collections/{collection_id}/Items",
-                headers={"X-Emby-Token": self.api_key},
-                params={"ids": ",".join(ids)},
-            )
+            if self.item_type == "collection":
+                _ = requests.delete(
+                    f"{self.server_url}/Collections/{item_id}/Items",
+                    headers={"X-Emby-Token": self.api_key},
+                    params={"ids": ",".join(ids)},
+                )
+            else:
+                _ = requests.delete(
+                    f"{self.server_url}/Playlists/{item_id}/Items",
+                    headers={"X-Emby-Token": self.api_key},
+                    params={"entryIds": ",".join(ids)},
+                )
 
-        logger.info(f"Cleared collection {collection_id}")
+        logger.info(f"Cleared collection {item_id}")

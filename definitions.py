@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import Literal, Protocol, TypedDict, runtime_checkable
 
 
 class JellyfinImageType(StrEnum):
@@ -45,7 +45,11 @@ class JellyfinItem(_JellyfinItem, total=False):
     series: str | None
 
 
+ItemType = Literal["collection"] | Literal["playlist"]
+
+
 class ListIDItem(TypedDict, total=False):
+    list_type: ItemType
     list_name: str
     list_id: str
     list_desc: str
