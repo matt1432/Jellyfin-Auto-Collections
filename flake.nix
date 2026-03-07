@@ -43,6 +43,59 @@
           fonttools
           idna
           kiwisolver
+          (callPackage ({
+            # nix build inputs
+            buildPythonPackage,
+            fetchPypi,
+            # python deps
+            hatchling,
+            beautifulsoup4,
+            lxml,
+            curl-cffi,
+            ...
+          }: let
+            pname = "letterboxdpy";
+            version = "6.4.1";
+          in
+            buildPythonPackage {
+              inherit pname version;
+
+              pyproject = true;
+              build-system = [hatchling];
+
+              dependencies = [
+                beautifulsoup4
+                lxml
+                curl-cffi
+                (callPackage ({
+                  # nix build inputs
+                  buildPythonPackage,
+                  fetchPypi,
+                  # python deps
+                  setuptools,
+                  ...
+                }: let
+                  pname = "fastfingertips";
+                  version = "0.1.3";
+                in
+                  buildPythonPackage {
+                    inherit pname version;
+
+                    pyproject = true;
+                    build-system = [setuptools];
+
+                    src = fetchPypi {
+                      inherit pname version;
+                      hash = "sha256-/IwEKedIIjIEebjynPP9xDu6Q+ca+OpFEx3zMr0Es0E=";
+                    };
+                  }) {})
+              ];
+
+              src = fetchPypi {
+                inherit pname version;
+                hash = "sha256-FY+XX18RMjHLvPyvs1EKGRcC/xSlJECtGYfoC+dbQcs=";
+              };
+            }) {})
           loguru
           pluginlib
           pyaml-env
