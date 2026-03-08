@@ -1,4 +1,5 @@
 import concurrent.futures
+import html
 import json
 import os
 from base64 import b64encode
@@ -310,6 +311,8 @@ class JellyfinClient:
             if "media_type" in item and item["media_type"] is not None
             else []
         )
+
+        item["title"] = html.unescape(item["title"])
 
         params = {
             "enableTotalRecordCount": "false",
