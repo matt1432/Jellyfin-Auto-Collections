@@ -2,6 +2,7 @@
 config.yaml
 __pycache__
 .trakt_access_token
+.letterboxd_cache.json
 
 .direnv
 result*

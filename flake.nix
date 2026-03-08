@@ -124,7 +124,7 @@
           pytest
         ]);
   in {
-    overlays.default = final: prev: {
+    overlays.default = final: _prev: {
       jellyfin-auto-collections = final.callPackage (
         {
           stdenv,

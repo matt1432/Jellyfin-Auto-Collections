@@ -1,5 +1,5 @@
 [tool.basedpyright]
-allowedUntypedLibraries = ["apscheduler", "pluginlib", "pyaml_env"]
+allowedUntypedLibraries = ["apscheduler", "pluginlib", "pyaml_env", "letterboxdpy"]
 reportAny = false
 
 [tool.ruff]
