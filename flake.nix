@@ -22,6 +22,7 @@
   };
 
   outputs = {
+    self,
     systems,
     nixpkgs,
     treefmt-nix,
@@ -29,7 +30,10 @@
   }: let
     perSystem = attrs:
       nixpkgs.lib.genAttrs (import systems) (system:
-        attrs (import nixpkgs {inherit system;}));
+        attrs (import nixpkgs {
+          inherit system;
+          overlays = [self.overlays.default];
+        }));
 
     pyEnv = pkgs:
       pkgs.python3Packages.python.withPackages (ps:
@@ -120,15 +124,63 @@
           pytest
         ]);
   in {
-    formatter = perSystem (pkgs: let
-      treefmtEval = treefmt-nix.lib.evalModule pkgs (import ./treefmt.nix pyEnv);
-    in
-      treefmtEval.config.build.wrapper);
+    overlays.default = final: prev: {
+      jellyfin-auto-collections = final.callPackage (
+        {
+          stdenv,
+          makeWrapper,
+          pkgs,
+          ...
+        }: let
+          pname = "jellyfin-auto-collections";
+          version = "0.0.0";
+
+          interpreter =
+            (pyEnv pkgs).interpreter;
+        in
+          stdenv.mkDerivation {
+            inherit pname version;
+
+            src = ./.;
+
+            nativeBuildInputs = [
+              makeWrapper
+            ];
+
+            installPhase = ''
+              runHook preInstall
+
+              mkdir -p $out/bin $out/share $out/share/Jellyfin-Auto-Collections
+              cp -R ./{plugins,utils,*.py} $out/share/Jellyfin-Auto-Collections
+
+              makeWrapper ${interpreter} $out/bin/${pname} \
+                --add-flags "-u $out/share/Jellyfin-Auto-Collections/main.py" \
+                --prefix PYTHONPATH : "$out/share/Jellyfin-Auto-Collections"
+
+              runHook postInstall
+            '';
+
+            meta = {
+              mainProgram = pname;
+            };
+          }
+      ) {};
+    };
+
+    packages = perSystem (pkgs: rec {
+      inherit (pkgs) jellyfin-auto-collections;
+      default = jellyfin-auto-collections;
+    });
 
     devShells = perSystem (pkgs: {
       default = pkgs.mkShell {
         packages = [(pyEnv pkgs)];
       };
     });
+
+    formatter = perSystem (pkgs: let
+      treefmtEval = treefmt-nix.lib.evalModule pkgs (import ./treefmt.nix pyEnv);
+    in
+      treefmtEval.config.build.wrapper);
   };
 }

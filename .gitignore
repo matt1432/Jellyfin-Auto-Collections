@@ -4,3 +4,4 @@ __pycache__
 .trakt_access_token
 
 .direnv
+result*
