@@ -59,7 +59,7 @@
             ...
           }: let
             pname = "letterboxdpy";
-            version = "6.4.1";
+            version = "6.5.2";
           in
             buildPythonPackage {
               inherit pname version;
@@ -77,10 +77,13 @@
                   fetchPypi,
                   # python deps
                   setuptools,
+                  requests,
+                  beautifulsoup4,
+                  termcolor,
                   ...
                 }: let
                   pname = "fastfingertips";
-                  version = "0.1.3";
+                  version = "0.1.4";
                 in
                   buildPythonPackage {
                     inherit pname version;
@@ -88,16 +91,22 @@
                     pyproject = true;
                     build-system = [setuptools];
 
+                    dependencies = [
+                      requests
+                      beautifulsoup4
+                      termcolor
+                    ];
+
                     src = fetchPypi {
                       inherit pname version;
-                      hash = "sha256-/IwEKedIIjIEebjynPP9xDu6Q+ca+OpFEx3zMr0Es0E=";
+                      hash = "sha256-weAIovKRCOHiNkrJm0uH/zeM5m4Q02RGzePzchGNS1o=";
                     };
                   }) {})
               ];
 
               src = fetchPypi {
                 inherit pname version;
-                hash = "sha256-FY+XX18RMjHLvPyvs1EKGRcC/xSlJECtGYfoC+dbQcs=";
+                hash = "sha256-zZRuMZvGN3z+4M5jcij66jBUXcwA+gbWJFYnbZQt/IA=";
               };
             }) {})
           loguru
