@@ -5,6 +5,7 @@ import bs4
 import requests
 
 from definitions import BasePluginConfig, JellyfinItem, ListIDItem, PluginResult
+from plugins import IMDbBlockedException
 from utils.base_plugin import ListScraper
 
 
@@ -31,7 +32,14 @@ class IMDBChart(ListScraper):
             },
         )
         soup = bs4.BeautifulSoup(res.text, "html.parser")
-        list_name = cast(bs4.Tag, soup.find("title")).text
+
+        # Check if IMDb blocked the request or returned an empty/challenge page
+        title_tag = soup.find("title")
+        data_tag = soup.find("script", id="__NEXT_DATA__")
+        if not title_tag or not data_tag:
+            raise IMDbBlockedException()
+
+        list_name = title_tag.text
         description = str(
             cast(bs4.Tag, soup.find("meta", property="og:description"))[
                 "content"
@@ -39,8 +47,7 @@ class IMDBChart(ListScraper):
         )
         movies: list[JellyfinItem] = []
 
-        data = cast(bs4.Tag, soup.find("script", id="__NEXT_DATA__"))
-        data = json.loads(data.text)
+        data = json.loads(data_tag.text)
 
         for movie in next(
             iter(data["props"]["pageProps"]["pageData"].values())
@@ -55,9 +62,12 @@ class IMDBChart(ListScraper):
                     },
                 )
                 soup = bs4.BeautifulSoup(res.text, "html.parser")
-                item_data = json.loads(
-                    cast(bs4.Tag, soup.find("script", id="__NEXT_DATA__")).text
-                )
+
+                item_script = soup.find("script", id="__NEXT_DATA__")
+                if not item_script:
+                    continue
+
+                item_data = json.loads(item_script.text)
                 movie = item_data["props"]["pageProps"]["aboveTheFoldData"]
 
             title = movie["titleText"]["text"]

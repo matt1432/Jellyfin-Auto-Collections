@@ -1,0 +1,2 @@
+class IMDbBlockedException(Exception):
+    pass
