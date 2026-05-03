@@ -1,6 +1,6 @@
 import os
 import time
-from typing import cast, final
+from typing import Any, cast, final
 
 import requests
 from loguru import logger
@@ -12,6 +12,7 @@ from definitions import (
     PluginResult,
     TraktPluginConfig,
 )
+from plugins import TraktException
 from utils.base_plugin import ListScraper
 
 
@@ -75,7 +76,7 @@ class Trakt(ListScraper):
         },
         "shows/played": {
             "title": "Most Played Shows",
-            "description": "Returns the most played (a single user can watch multiple episodes multiple times) shows for the last week.",
+            "description": "The most played (a single user can watch multiple episodes multiple times) shows for the last week.",
         },
         "shows/anticipated": {
             "title": "Most Anticipated Shows",
@@ -105,17 +106,25 @@ class Trakt(ListScraper):
                 headers=headers,
                 json={"client_id": config["client_id"]},
             )
+
+            # Ensure the API request was successful to prevent JSON parsing crashes.
+            # This safely catches errors like 429 (Rate Limit) or 401 (Bad Client ID).
+            if r.status_code != 200:
+                logger.error(
+                    f"Failed to get device code from Trakt! Status: {r.status_code}"
+                )
+                return None
+
             device_code = r.json()["device_code"]
             user_code = r.json()["user_code"]
             interval = r.json()["interval"]
 
-            logger.info("Authentication with Trakt API required")
-            logger.info(
-                f"Please visit the following URL to get your access token: {r.json()['verification_url']}"
-            )
-            logger.info("")
-            logger.info(f"Your device code is: {user_code}")
-            logger.info("")
+            # AUTHENTICATION PROMPT
+            logger.info("===================================================")
+            logger.info("🛑 AUTHENTICATION WITH TRAKT API REQUIRED 🛑")
+            logger.info(f"Please visit: {r.json()['verification_url']}")
+            logger.info(f"Enter this device code: {user_code}")
+            logger.info("===================================================")
 
             # Poll the API until the user has authenticated
             while True:
@@ -153,6 +162,9 @@ class Trakt(ListScraper):
 
         config = cast(TraktPluginConfig, config)
 
+        # Force user input to lowercase to prevent case-sensitive crashes
+        list_id = str(list_id).lower()
+
         headers = {
             "Content-Type": "application/json",
             "trakt-api-version": "2",
@@ -160,35 +172,96 @@ class Trakt(ListScraper):
         }
 
         access_token = Trakt._get_auth_token(config)
+        # If authentication failed, return an empty list structure
+        if not access_token:
+            raise TraktException()
+
         headers["Authorization"] = f"Bearer {access_token}"
         logger.debug("Access token loaded")
-
-        item_types = ""
+        item_types = "movie"  # Default fallback
 
         if list_id.startswith("users/"):
             logger.debug("Trakt Default User list")
             r = requests.get(f"https://api.trakt.tv/{list_id}", headers=headers)
-            components = list_id.split("/")
-            list_name = f"{components[1]}'s {components[2]}"
-            description = f"{components[1]}'s {components[2]}"
-            items_data = r.json()
+
+            list_data = r.json()
+            list_name = list_data.get("name", "User List")
+            description = list_data.get("description", "")
+
+            # Get Items
+            r = requests.get(
+                f"https://api.trakt.tv/{list_id}/items", headers=headers
+            )
+            items_data: list[dict[str, Any]] = (
+                r.json() if r.status_code == 200 else []
+            )  # pyright: ignore[reportExplicitAny]
         elif list_id.startswith("shows/") or list_id.startswith("movies/"):
             # Chart
             logger.debug("Trakt chart list")
+            # Retrieve collection metadata based on the chart type.
+            list_name = Trakt._chart_types[list_id]["title"]
+            description = Trakt._chart_types[list_id]["description"]
+            # Establish the default media type for parsing items below. (Fallback if Trakt doesnt provide)
+            if list_id.startswith("shows/"):
+                item_types = "show"
+            else:
+                item_types = "movie"
 
             current_page = 1
             items_data = []
+            max_items = config.get("max_items") if config else None
+
             while True:
                 r = requests.get(
                     f"https://api.trakt.tv/{list_id}?page={current_page}",
                     headers=headers,
                 )
-                items_data += r.json()
+                # Catch formal API errors (e.g., 429 Too Many Requests, 500 Server Error).
+                if r.status_code != 200:
+                    logger.error(
+                        f"Trakt API error (Status {r.status_code}) on page {current_page}."
+                    )
+                    break
+                # Safely try to read the JSON. This catches edge cases where Trakt returns a 200 OK status but serves an HTML Cloudflare page instead.
+                try:
+                    page_data = r.json()
+                except Exception:
+                    logger.error(
+                        f"Trakt returned invalid JSON on page {current_page}. Stopping pagination."
+                    )
+                    break
+
+                items_data += page_data
                 page_count = int(r.headers.get("X-Pagination-Page-Count", 1))
-                logger.debug(f"Page {current_page}/{page_count}")
-                if current_page >= page_count:
+                # Massive lists (like movies/watched) have tens of thousands of pages. Warn the user if they didn't set a limit so they know why it takes hours.
+                if current_page == 1 and max_items is None and page_count > 50:
+                    est_hours = round(page_count / 3600, 2)
+                    logger.warning(
+                        f"WARNING: No 'max_items' limit set for {list_id}!"
+                    )
+                    logger.warning(
+                        f"Trakt reports {page_count} total pages. Due to API rate limits, this will take approximately {est_hours} hours to fetch."
+                    )
+                    logger.warning(
+                        "If it appears 'stuck', it is just working slowly in the background."
+                    )
+                    logger.warning(
+                        "Recommendation: Add 'max_items: 1000' (or similar) to your config.yaml to prevent this."
+                    )
+                logger.debug(
+                    f"Page {current_page}/{page_count}. Total items: {len(items_data)}"
+                )
+                # Stop paginating if we reach the end of Trakt's list OR hit the user's configured limit.
+                if current_page >= page_count or (
+                    max_items is not None and len(items_data) >= max_items
+                ):
                     break
                 current_page += 1
+                # Pause for 1 second between requests to respect Trakt's rate limits.
+                time.sleep(1)
+            # We fetch in full pages, so we might have slightly overshot the limit. Slice the final array to return the exact number the user requested.
+            if max_items is not None:
+                items_data = items_data[:max_items]
 
             list_name = Trakt._chart_types[list_id]["title"]
             description = Trakt._chart_types[list_id]["description"]
@@ -197,16 +270,41 @@ class Trakt(ListScraper):
             else:
                 item_types = "movie"
         else:
-            logger.debug("Trakt User list")
+            # CUSTOM USER LIST
+            logger.debug(f"Trakt User list: {list_id}")
             r = requests.get(
                 f"https://api.trakt.tv/lists/{list_id}", headers=headers
             )
-            list_name = r.json()["name"]
-            description = r.json()["description"]
+
+            # Safety check: If list is private or ID is wrong, Trakt returns 404 or 401
+            if r.status_code != 200:
+                logger.error(
+                    f"Trakt list '{list_id}' not found or private (Status {r.status_code}). Skipping."
+                )
+                raise TraktException()
+
+            try:
+                list_data = r.json()
+                list_name = list_data.get("name", "Unknown List")
+                description = list_data.get("description", "")
+            except Exception:
+                logger.error(
+                    f"Failed to parse metadata for Trakt list '{list_id}'."
+                )
+                raise TraktException()
+
+            # Fetch the Items
             r = requests.get(
                 f"https://api.trakt.tv/lists/{list_id}/items", headers=headers
             )
-            items_data = r.json()
+            if r.status_code == 200:
+                try:
+                    items_data = r.json()
+                except Exception:
+                    items_data = []
+            else:
+                logger.warning(f"Could not fetch items for list '{list_id}'.")
+                items_data = []
 
         # Process the items
         logger.debug("Processing items.")
@@ -231,10 +329,10 @@ class Trakt(ListScraper):
                 imdb_id = meta["ids"]["imdb"]
 
             title = ""
-            try:
+            if "title" in meta:
                 title = cast(str, meta["title"])
-            except Exception:
-                breakpoint()
+            else:
+                continue
 
             release_year = None
             if "year" in meta:
