@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "letterboxdpy-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777230452,
+        "narHash": "sha256-HhodoL20K7EhMgzRDF6Z6yn2dPgOkqm3FWMejAvNpeE=",
+        "owner": "nmcassa",
+        "repo": "letterboxdpy",
+        "rev": "438c25f41b299027889543b0d3df49e7a7198a76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nmcassa",
+        "ref": "v6.5.2",
+        "repo": "letterboxdpy",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1777268161,
@@ -19,6 +36,7 @@
     },
     "root": {
       "inputs": {
+        "letterboxdpy-src": "letterboxdpy-src",
         "nixpkgs": "nixpkgs",
         "systems": "systems",
         "treefmt-nix": "treefmt-nix"

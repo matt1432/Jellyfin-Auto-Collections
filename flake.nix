@@ -19,6 +19,14 @@
       owner = "nix-systems";
       repo = "default-linux";
     };
+
+    letterboxdpy-src = {
+      type = "github";
+      owner = "nmcassa";
+      repo = "letterboxdpy";
+      ref = "v6.5.2";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -26,6 +34,7 @@
     systems,
     nixpkgs,
     treefmt-nix,
+    letterboxdpy-src,
     ...
   }: let
     perSystem = attrs:
@@ -50,7 +59,6 @@
           (callPackage ({
             # nix build inputs
             buildPythonPackage,
-            fetchPypi,
             # python deps
             hatchling,
             beautifulsoup4,
@@ -104,10 +112,7 @@
                   }) {})
               ];
 
-              src = fetchPypi {
-                inherit pname version;
-                hash = "sha256-zZRuMZvGN3z+4M5jcij66jBUXcwA+gbWJFYnbZQt/IA=";
-              };
+              src = letterboxdpy-src;
             }) {})
           loguru
           pluginlib
