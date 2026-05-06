@@ -65,7 +65,7 @@ class JellyseerrClient:
         # Search for item
         r = self.session.get(
             f"{self.server_url}/search",
-            params={"query": urllib.parse.quote_plus(item["title"])},
+            params={"query": urllib.parse.quote_plus(item["title"] or "")},
         )
 
         # Find matching item

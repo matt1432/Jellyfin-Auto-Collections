@@ -192,9 +192,9 @@ class Trakt(ListScraper):
             r = requests.get(
                 f"https://api.trakt.tv/{list_id}/items", headers=headers
             )
-            items_data: list[dict[str, Any]] = (
+            items_data: list[dict[str, Any]] = (  # pyright: ignore[reportExplicitAny]
                 r.json() if r.status_code == 200 else []
-            )  # pyright: ignore[reportExplicitAny]
+            )
         elif list_id.startswith("shows/") or list_id.startswith("movies/"):
             # Chart
             logger.debug("Trakt chart list")
