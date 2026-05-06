@@ -33,7 +33,7 @@ class JellyseerrConfig(TypedDict):
 
 
 class _JellyfinItem(TypedDict):
-    title: str
+    title: str | None
 
 
 class JellyfinItem(_JellyfinItem, total=False):

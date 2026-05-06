@@ -301,6 +301,7 @@ class JellyfinClient:
         item: JellyfinItem,
         year_filter: bool = True,
         jellyfin_query_parameters: dict[str, str] | None = None,
+        original_title: str | None = None,
     ) -> bool:
         """Adds an item to a parent item based on item name and release year"""
 
@@ -312,7 +313,8 @@ class JellyfinClient:
             else []
         )
 
-        item["title"] = html.unescape(item["title"])
+        if item["title"] is not None:
+            item["title"] = html.unescape(item["title"])
 
         params = {
             "enableTotalRecordCount": "false",
@@ -326,7 +328,7 @@ class JellyfinClient:
         params = {**params, **(jellyfin_query_parameters or {})}
 
         res = requests.get(
-            f"{self.server_url}/Users/{self.user_id}/Items",
+            f"{self.server_url}/Items",
             headers={"X-Emby-Token": self.api_key},
             params=params,
         )
@@ -372,19 +374,36 @@ class JellyfinClient:
             if match is None and len(items) == 1:
                 match = items[0]
 
+        # For debugging
+        _series_name = (
+            f"{item['series']} "
+            if "series" in item and item["series"] is not None
+            else ""
+        )
+        item_fullname = f"{_series_name}{original_title or item['title']}"
+
         if match is None:
             # Try searching all media types before assuming it does not exist
             # Only end when media_type is [], meaning we searched all media_types
-            if len(media_type) != 0:
+            if item["title"] is not None:
+                return self.add_item_to_parent(
+                    parent_item_id,
+                    item={**item, "title": None},
+                    year_filter=year_filter,
+                    jellyfin_query_parameters=jellyfin_query_parameters,
+                    original_title=item["title"],
+                )
+            elif len(media_type) != 0:
                 return self.add_item_to_parent(
                     parent_item_id,
                     item={**item, "media_type": None},
                     year_filter=year_filter,
                     jellyfin_query_parameters=jellyfin_query_parameters,
+                    original_title=original_title,
                 )
             else:
                 logger.warning(
-                    f"Item {item['title']} ({item.get('release_year', 'N/A')}) {item.get('imdb_id', '')} not found in jellyfin"
+                    f"Item {item_fullname} ({item.get('release_year', 'N/A')}) {item.get('imdb_id', item.get('tvdb_id', ''))} not found in jellyfin"
                 )
                 logger.debug(f"List Candidate: {item}")
                 logger.debug(f"JF Search: {res.json()['Items']}")
@@ -406,13 +425,13 @@ class JellyfinClient:
                             "userId": self.user_id,
                         },
                     )
-                logger.info(f"Added {item['title']} to {self.item_type}")
+                logger.info(f"Added {item_fullname} to {self.item_type}")
                 logger.debug(f"    List item: {item}")
                 logger.debug(f"    Matched JF item: {match}")
                 return True
             except json.decoder.JSONDecodeError:
                 logger.error(
-                    f"Error adding {item['title']} to collection - JSONDecodeError"
+                    f"Error adding {item_fullname} to collection - JSONDecodeError"
                 )
         return False
 
