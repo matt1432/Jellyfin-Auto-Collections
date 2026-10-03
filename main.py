@@ -138,9 +138,15 @@ def main(config: Config):
                 )
 
                 # Match list items to jellyfin items
-                list_info = plugins[plugin_name].get_list(
-                    list_entry, plugin_config
-                )
+                try:
+                    list_info = plugins[plugin_name].get_list(
+                        list_entry, plugin_config
+                    )
+                except Exception as e:
+                    logger.exception(
+                        f"Failed processing list {list_id}:" + str(e)
+                    )
+                    continue
                 list_info["items"].extend(list_extra_items)
 
                 list_name = list_name or list_info["name"]
