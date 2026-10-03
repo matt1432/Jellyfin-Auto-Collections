@@ -70,10 +70,16 @@ class JellyfinClient:
         # Check if api key is valid
         res = requests.get(
             f"{self.server_url}/System/Info",
-            headers={"X-Emby-Token": self.api_key},
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
         )
+        if res.status_code == 401:
+            raise Exception(
+                "Jellyfin rejected the API key (HTTP 401). Check that the key belongs to this server and has not been revoked."
+            )
         if res.status_code != 200:
-            raise Exception("Invalid API key")
+            raise Exception(
+                f"Jellyfin API check failed for {self.server_url}/System/Info (HTTP {res.status_code}). Check the server URL and any reverse-proxy base path."
+            )
 
         jf_info = res.json()
         logger.debug(f"Jellyfin Version: {jf_info['Version']}")
@@ -81,7 +87,7 @@ class JellyfinClient:
         # Check if user id is valid
         res = requests.get(
             f"{self.server_url}/Users/{self.user_id}",
-            headers={"X-Emby-Token": self.api_key},
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
         )
         if res.status_code != 200:
             raise Exception("Invalid user id")
@@ -95,11 +101,12 @@ class JellyfinClient:
                 item_type, None
             ),
             "fields": ["Name", "Id", "Tags"],
+            "userId": self.user_id,
         }
         logger.info(f"Getting {item_type}s list...")
         res = requests.get(
-            f"{self.server_url}/Users/{self.user_id}/Items",
-            headers={"X-Emby-Token": self.api_key},
+            f"{self.server_url}/Items",
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
             params=params,
         )
         return res.json()["Items"]
@@ -151,13 +158,17 @@ class JellyfinClient:
             if self.item_type == "collection":
                 res2 = requests.post(
                     f"{self.server_url}/Collections",
-                    headers={"X-Emby-Token": self.api_key},
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
                     params={"name": list_name},
                 )
             else:  # if self.item_type == "playlist":
                 res2 = requests.post(
                     f"{self.server_url}/Playlists",
-                    headers={"X-Emby-Token": self.api_key},
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
                     json={
                         "Name": list_name,
                         "Ids": [],
@@ -173,8 +184,11 @@ class JellyfinClient:
         item = cast(
             Item,
             requests.get(
-                f"{self.server_url}/Users/{self.user_id}/Items/{item_id}",
-                headers={"X-Emby-Token": self.api_key},
+                f"{self.server_url}/Items/{item_id}",
+                headers={
+                    "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                },
+                params={"userId": self.user_id},
             ).json(),
         )
         if description is not None:
@@ -197,7 +211,7 @@ class JellyfinClient:
             item["OriginalTitle"] = list_name
         _ = requests.post(
             f"{self.server_url}/Items/{item_id}",
-            headers={"X-Emby-Token": self.api_key},
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
             json=item,
         )
 
@@ -206,7 +220,10 @@ class JellyfinClient:
     def has_poster(self, item_id: str):
         """Check if an item already has a poster"""
         poster_url = f"{self.server_url}/Items/{item_id}/Images/Primary"
-        r = requests.get(poster_url, headers={"X-Emby-Token": self.api_key})
+        r = requests.get(
+            poster_url,
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
+        )
         if r.status_code == 404:
             return False
         return True
@@ -241,7 +258,7 @@ class JellyfinClient:
         encoded_data = b64encode(img_data)
 
         headers = {
-            "X-Emby-Token": self.api_key,
+            "Authorization": f'MediaBrowser Token="{self.api_key}"',
             "Content-Type": "image/jpeg",
         }
         _ = requests.post(
@@ -261,7 +278,7 @@ class JellyfinClient:
         poster_urls = fetch_item_posters(
             self.server_url, self.api_key, self.user_id, item_id
         )[:mosaic_limit]
-        headers = {"X-Emby-Token": self.api_key}
+        headers = {"Authorization": f'MediaBrowser Token="{self.api_key}"'}
 
         # Use a ThreadPoolExecutor to download images in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -323,13 +340,14 @@ class JellyfinClient:
             "IncludeItemTypes": media_type,
             "searchTerm": item["title"],
             "fields": ["ProviderIds", "ProductionYear"],
+            "userId": self.user_id,
         }
 
         params = {**params, **(jellyfin_query_parameters or {})}
 
         res = requests.get(
             f"{self.server_url}/Items",
-            headers={"X-Emby-Token": self.api_key},
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
             params=params,
         )
 
@@ -414,12 +432,16 @@ class JellyfinClient:
                 if self.item_type == "collection":
                     _ = requests.post(
                         f"{self.server_url}/Collections/{parent_item_id}/Items?ids={item_id}",
-                        headers={"X-Emby-Token": self.api_key},
+                        headers={
+                            "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                        },
                     )
                 else:
                     _ = requests.post(
                         f"{self.server_url}/Playlists/{parent_item_id}/Items",
-                        headers={"X-Emby-Token": self.api_key},
+                        headers={
+                            "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                        },
                         params={
                             "ids": item_id,
                             "userId": self.user_id,
@@ -441,9 +463,13 @@ class JellyfinClient:
     ):
         """Clears a collection by removing all items from it"""
         res = requests.get(
-            f"{self.server_url}/Users/{self.user_id}/Items",
-            headers={"X-Emby-Token": self.api_key},
-            params={"Recursive": "true", "parentId": item_id},
+            f"{self.server_url}/Items",
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
+            params={
+                "Recursive": "true",
+                "parentId": item_id,
+                "userId": self.user_id,
+            },
         )
         all_ids = [item["Id"] for item in res.json()["Items"]]
 
@@ -453,13 +479,17 @@ class JellyfinClient:
             if self.item_type == "collection":
                 _ = requests.delete(
                     f"{self.server_url}/Collections/{item_id}/Items",
-                    headers={"X-Emby-Token": self.api_key},
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
                     params={"ids": ",".join(ids)},
                 )
             else:
                 _ = requests.delete(
                     f"{self.server_url}/Playlists/{item_id}/Items",
-                    headers={"X-Emby-Token": self.api_key},
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
                     params={"entryIds": ",".join(ids)},
                 )
 

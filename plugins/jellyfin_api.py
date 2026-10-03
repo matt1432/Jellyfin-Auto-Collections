@@ -46,12 +46,15 @@ class JellyfinAPI(ListScraper):
             "enableImages": "false",
             "Recursive": "true",
             "fields": ["ProviderIds", "ProductionYear"],
+            "userId": config["user_id"],
         }
         params = {**params, **list_id}
 
         res = requests.get(
-            f"{config['server_url']}/Users/{config['user_id']}/Items",
-            headers={"X-Emby-Token": config["api_key"]},
+            f"{config['server_url']}/Items",
+            headers={
+                "Authorization": f'MediaBrowser Token="{config["api_key"]}"'
+            },
             params=params,  # pyright: ignore[reportArgumentType]
         )
 
