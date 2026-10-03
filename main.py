@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from pathlib import Path
 from typing import cast
 
 import pluginlib
@@ -35,6 +36,12 @@ log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 # Configure Loguru logger
 logger.remove()  # Remove default configuration
 _ = logger.add(sys.stderr, format="{level} {message}", level=log_level)
+
+working_directory = (
+    Path("/app/config")
+    if os.getenv("RUNNING_IN_DOCKER", "").lower() == "true"
+    else Path.cwd()
+)
 
 # Load config
 if not os.path.exists(args.config):

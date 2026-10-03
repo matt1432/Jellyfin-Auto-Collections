@@ -12,6 +12,7 @@ from definitions import (
     PluginResult,
     TraktPluginConfig,
 )
+from main import working_directory
 from plugins import TraktException
 from utils.base_plugin import ListScraper
 
@@ -19,7 +20,7 @@ from utils.base_plugin import ListScraper
 @final
 class Trakt(ListScraper):
     _alias_ = "trakt"
-    _access_token_file = ".trakt_access_token"
+    _access_token_file = str(working_directory) + "/.trakt_access_token"
 
     _chart_types = {
         "movies/trending": {
@@ -98,7 +99,9 @@ class Trakt(ListScraper):
             # If we have already authenticated, read the access token from the file
             with open(Trakt._access_token_file) as f:
                 access_token = f.read()
-            logger.debug("Existing access token found")
+            logger.debug(
+                f"Existing access token found at {Trakt._access_token_file}"
+            )
         else:
             # If we have not authenticated, get the access token from the user
             r = requests.post(
