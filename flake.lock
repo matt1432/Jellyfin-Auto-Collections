@@ -3,16 +3,16 @@
     "letterboxdpy-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1777230452,
-        "narHash": "sha256-HhodoL20K7EhMgzRDF6Z6yn2dPgOkqm3FWMejAvNpeE=",
+        "lastModified": 1780311116,
+        "narHash": "sha256-8kna1aI/fphPwJEDwnNhqo82fg0bPhH20XTU5+WQ3ss=",
         "owner": "nmcassa",
         "repo": "letterboxdpy",
-        "rev": "438c25f41b299027889543b0d3df49e7a7198a76",
+        "rev": "cafa31dd84a58948e2d13a84bcc3a1a4a76f5701",
         "type": "github"
       },
       "original": {
         "owner": "nmcassa",
-        "ref": "v6.5.2",
+        "ref": "v6.5.5",
         "repo": "letterboxdpy",
         "type": "github"
       }

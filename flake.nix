@@ -24,7 +24,7 @@
       type = "github";
       owner = "nmcassa";
       repo = "letterboxdpy";
-      ref = "v6.5.2";
+      ref = "v6.5.5";
       flake = false;
     };
   };
@@ -67,7 +67,7 @@
             ...
           }: let
             pname = "letterboxdpy";
-            version = "6.5.2";
+            version = "6.5.5";
           in
             buildPythonPackage {
               inherit pname version;
