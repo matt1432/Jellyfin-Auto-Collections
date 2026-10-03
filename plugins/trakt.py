@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 from typing import Any, cast, final
 
 import requests
@@ -12,7 +13,6 @@ from definitions import (
     PluginResult,
     TraktPluginConfig,
 )
-from main import working_directory
 from plugins import TraktException
 from utils.base_plugin import ListScraper
 
@@ -20,7 +20,12 @@ from utils.base_plugin import ListScraper
 @final
 class Trakt(ListScraper):
     _alias_ = "trakt"
-    _access_token_file = str(working_directory) + "/.trakt_access_token"
+    _working_directory = (
+        Path("/app/config")
+        if os.getenv("RUNNING_IN_DOCKER", "").lower() == "true"
+        else Path.cwd()
+    )
+    _access_token_file = str(_working_directory) + "/.trakt_access_token"
 
     _chart_types = {
         "movies/trending": {
