@@ -35,13 +35,18 @@ class CriterionChannel(ListScraper):
         items: list[JellyfinItem] = []
         for item in soup.find_all("li", class_="js-collection-item"):
             title = cast(bs4.Tag, item.find("strong")).text.strip()
-            year = cast(bs4.Tag, item.find("p"))
-            if "•" in year.text:
-                year = year.text.split("•")[1].strip()
-            else:
-                year = year.text.strip()
+            year_text = cast(bs4.Tag, item.find("p")).text
+            if "•" in year_text:
+                year_text = year_text.split("•")[1]
+            year_text = year_text.strip()
             items.append(
-                {"title": title, "release_year": year, "media_type": "movie"}
+                {
+                    "title": title,
+                    "release_year": int(year_text)
+                    if year_text.isdigit()
+                    else None,
+                    "media_type": "movie",
+                }
             )
 
         return {

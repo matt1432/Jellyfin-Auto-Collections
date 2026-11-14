@@ -34,11 +34,13 @@ class TSPDT(ListScraper):
             for suffix in ["The", "A", "La", "Le", "L'"]:
                 if movie_title.endswith(", " + suffix):
                     movie_title = suffix + " " + movie_title[: -len(suffix) - 2]
-            movie_year = values[4].text
+            movie_year = values[4].text.strip()
             movies.append(
                 {
                     "title": movie_title,
-                    "release_year": movie_year,
+                    "release_year": int(movie_year)
+                    if movie_year.isdigit()
+                    else None,
                     "media_type": "movie",
                 }
             )

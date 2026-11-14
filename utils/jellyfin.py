@@ -3,7 +3,7 @@ import html
 import json
 import os
 from base64 import b64encode
-from typing import TypedDict, cast, final
+from typing import NotRequired, TypedDict, cast, final
 
 import requests
 from loguru import logger
@@ -23,6 +23,7 @@ class Item(TypedDict):
     Name: str
     Tags: list[str]
     Overview: str
+    OriginalTitle: NotRequired[str]
 
 
 class PItem(TypedDict):
@@ -203,16 +204,16 @@ class JellyfinClient:
                 ]
             )
         )
-        item = {
-            **item,
-            "Name": list_name,
-        }
+        item["Name"] = list_name
         if self.item_type == "collection":
             item["OriginalTitle"] = list_name
         _ = requests.post(
             f"{self.server_url}/Items/{item_id}",
-            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
-            json=item,
+            headers={
+                "Authorization": f'MediaBrowser Token="{self.api_key}"',
+                "Content-Type": "application/json",
+            },
+            data=json.dumps(item),
         )
 
         return item_id
