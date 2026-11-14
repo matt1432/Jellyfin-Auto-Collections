@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import math
 import os
 from io import BytesIO
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 import requests
 from loguru import logger
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps, _typing
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-StrOrBytesPath = _typing.StrOrBytesPath
+if TYPE_CHECKING:
+    from PIL._typing import StrOrBytesPath
 
 # Canvas dimensions and styling
 CANVAS_WIDTH = 2000
