@@ -28,6 +28,7 @@ class Item(TypedDict):
 
 class PItem(TypedDict):
     Id: str
+    Name: str
     ProviderIds: dict[str, str]
     ProductionYear: int
 
@@ -313,15 +314,14 @@ class JellyfinClient:
             url=output_path,
         )
 
-    def add_item_to_parent(
+    def find_item(
         self,
-        parent_item_id: str,
         item: JellyfinItem,
         year_filter: bool = True,
         jellyfin_query_parameters: dict[str, str] | None = None,
         original_title: str | None = None,
-    ) -> bool:
-        """Adds an item to a parent item based on item name and release year"""
+    ) -> PItem | None:
+        """Finds the Jellyfin item matching a list item based on its ids, name and release year"""
 
         media_type = (
             self.imdb_to_jellyfin_type_map.get(
@@ -405,16 +405,14 @@ class JellyfinClient:
             # Try searching all media types before assuming it does not exist
             # Only end when media_type is [], meaning we searched all media_types
             if item["title"] is not None:
-                return self.add_item_to_parent(
-                    parent_item_id,
+                return self.find_item(
                     item={**item, "title": None},
                     year_filter=year_filter,
                     jellyfin_query_parameters=jellyfin_query_parameters,
                     original_title=item["title"],
                 )
             elif len(media_type) != 0:
-                return self.add_item_to_parent(
-                    parent_item_id,
+                return self.find_item(
                     item={**item, "media_type": None},
                     year_filter=year_filter,
                     jellyfin_query_parameters=jellyfin_query_parameters,
@@ -426,75 +424,134 @@ class JellyfinClient:
                 )
                 logger.debug(f"List Candidate: {item}")
                 logger.debug(f"JF Search: {res.json()['Items']}")
-            return False
-        else:
-            try:
-                item_id = match["Id"]
-                if self.item_type == "collection":
-                    _ = requests.post(
-                        f"{self.server_url}/Collections/{parent_item_id}/Items?ids={item_id}",
-                        headers={
-                            "Authorization": f'MediaBrowser Token="{self.api_key}"'
-                        },
-                    )
-                else:
-                    _ = requests.post(
-                        f"{self.server_url}/Playlists/{parent_item_id}/Items",
-                        headers={
-                            "Authorization": f'MediaBrowser Token="{self.api_key}"'
-                        },
-                        params={
-                            "ids": item_id,
-                            "userId": self.user_id,
-                        },
-                    )
-                logger.info(f"Added {item_fullname} to {self.item_type}")
-                logger.debug(f"    List item: {item}")
-                logger.debug(f"    Matched JF item: {match}")
-                return True
-            except json.decoder.JSONDecodeError:
-                logger.error(
-                    f"Error adding {item_fullname} to collection - JSONDecodeError"
-                )
-        return False
+            return None
 
-    def clear_item(
-        self,
-        item_id: str,
-    ):
-        """Clears a collection by removing all items from it"""
-        res = requests.get(
-            f"{self.server_url}/Items",
-            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
-            params={
-                # Only the direct members can be removed. Recursing also returns
-                # the contents of series and nested collections, which makes
-                # Jellyfin log a warning for every one of them.
+        logger.debug(f"Matched {item_fullname}")
+        logger.debug(f"    List item: {item}")
+        logger.debug(f"    Matched JF item: {match}")
+        return match
+
+    def get_children(self, parent_item_id: str) -> list[PItem]:
+        """Gets the direct members of a collection or playlist, in order for playlists"""
+        if self.item_type == "collection":
+            url = f"{self.server_url}/Items"
+            # Only the direct members can be removed. Recursing also returns
+            # the contents of series and nested collections, which makes
+            # Jellyfin log a warning for every one of them.
+            params = {
                 "Recursive": "false",
-                "parentId": item_id,
+                "parentId": parent_item_id,
                 "userId": self.user_id,
-            },
-        )
-        all_ids = [item["Id"] for item in res.json()["Items"]]
+            }
+        else:
+            # Returns the entries in playlist order. Their PlaylistItemId,
+            # used for removal, is the same as the item Id.
+            url = f"{self.server_url}/Playlists/{parent_item_id}/Items"
+            params = {"userId": self.user_id}
 
-        # chunk ids into groups of 10
-        all_ids = [all_ids[i : i + 10] for i in range(0, len(all_ids), 10)]
-        for ids in all_ids:
+        res = requests.get(
+            url,
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
+            params=params,
+        )
+        res.raise_for_status()
+        return cast(list[PItem], res.json()["Items"])
+
+    def add_items(self, parent_item_id: str, item_ids: list[str]):
+        """Adds items to a collection or playlist, appending in order for playlists"""
+        for i in range(0, len(item_ids), 10):
+            ids = ",".join(item_ids[i : i + 10])
             if self.item_type == "collection":
-                _ = requests.delete(
-                    f"{self.server_url}/Collections/{item_id}/Items",
+                res = requests.post(
+                    f"{self.server_url}/Collections/{parent_item_id}/Items",
                     headers={
                         "Authorization": f'MediaBrowser Token="{self.api_key}"'
                     },
-                    params={"ids": ",".join(ids)},
+                    params={"ids": ids},
                 )
             else:
-                _ = requests.delete(
-                    f"{self.server_url}/Playlists/{item_id}/Items",
+                res = requests.post(
+                    f"{self.server_url}/Playlists/{parent_item_id}/Items",
                     headers={
                         "Authorization": f'MediaBrowser Token="{self.api_key}"'
                     },
-                    params={"entryIds": ",".join(ids)},
+                    params={"ids": ids, "userId": self.user_id},
                 )
+            res.raise_for_status()
 
-        logger.info(f"Cleared collection {item_id}")
+    def remove_items(self, parent_item_id: str, item_ids: list[str]):
+        """Removes items from a collection or playlist"""
+        for i in range(0, len(item_ids), 10):
+            ids = ",".join(item_ids[i : i + 10])
+            if self.item_type == "collection":
+                res = requests.delete(
+                    f"{self.server_url}/Collections/{parent_item_id}/Items",
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
+                    params={"ids": ids},
+                )
+            else:
+                res = requests.delete(
+                    f"{self.server_url}/Playlists/{parent_item_id}/Items",
+                    headers={
+                        "Authorization": f'MediaBrowser Token="{self.api_key}"'
+                    },
+                    params={"entryIds": ids},
+                )
+            res.raise_for_status()
+
+    def sync_items(
+        self,
+        parent_item_id: str,
+        wanted: list[PItem],
+        remove_unwanted: bool,
+    ):
+        """
+        Makes a collection or playlist contain the wanted items, only adding
+        what is missing and, if remove_unwanted is set, removing what is no
+        longer wanted. Playlists are rebuilt if their order no longer matches.
+        """
+        # Deduplicate while keeping the list order
+        wanted = list({item["Id"]: item for item in reversed(wanted)}.values())[
+            ::-1
+        ]
+        wanted_ids = [item["Id"] for item in wanted]
+
+        current = self.get_children(parent_item_id)
+        current_ids = [item["Id"] for item in current]
+
+        if (
+            self.item_type == "playlist"
+            and remove_unwanted
+            and current_ids != wanted_ids
+        ):
+            # Jellyfin can only append to playlists, so fix the order by
+            # rebuilding it. This only happens when the list has changed.
+            to_remove = current
+            to_add = wanted
+        else:
+            to_remove = (
+                [item for item in current if item["Id"] not in wanted_ids]
+                if remove_unwanted
+                else []
+            )
+            to_add = [item for item in wanted if item["Id"] not in current_ids]
+
+        if to_remove:
+            self.remove_items(
+                parent_item_id, [item["Id"] for item in to_remove]
+            )
+            for item in to_remove:
+                logger.info(f"Removed {item['Name']} from {self.item_type}")
+
+        if to_add:
+            self.add_items(parent_item_id, [item["Id"] for item in to_add])
+            for item in to_add:
+                logger.info(f"Added {item['Name']} to {self.item_type}")
+
+        logger.info(
+            f"Synced {self.item_type} {parent_item_id}: "
+            + f"{len(to_add)} added, {len(to_remove)} removed, "
+            + f"{len(wanted_ids) - len(to_add)} unchanged"
+        )

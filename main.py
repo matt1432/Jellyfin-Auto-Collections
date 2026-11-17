@@ -16,7 +16,7 @@ from definitions import (
     JellyfinImageType,
     ListScraperClass,
 )
-from utils.jellyfin import JellyfinClient
+from utils.jellyfin import JellyfinClient, PItem
 from utils.jellyseerr import JellyseerrClient
 
 
@@ -158,24 +158,32 @@ def main(config: Config):
                     item_type=list_type,
                 )
 
-                if plugin_config.get("clear_collection", False):
-                    # Optionally clear everything from the collection first
-                    jf_client.clear_item(parent_item_id)
-
-                # Add items to the collection
+                # Match list items to jellyfin items
+                wanted: list[PItem] = []
                 for item in list_info["items"]:
                     year_filter = plugin_config.get("year_filter", True)
 
-                    matched = jf_client.add_item_to_parent(
-                        parent_item_id,
+                    match = jf_client.find_item(
                         item,
                         year_filter=year_filter,
                         jellyfin_query_parameters=jellyfin_query_parameters,
                     )
 
+                    if match is not None:
+                        wanted.append(match)
                     # Automatically request it on JellySeerr if not found
-                    if not matched and js_client is not None:
+                    elif js_client is not None:
                         js_client.make_request(item)
+
+                # Only add what is missing and, with clear_collection, remove
+                # what is no longer in the list
+                jf_client.sync_items(
+                    parent_item_id,
+                    wanted,
+                    remove_unwanted=plugin_config.get(
+                        "clear_collection", False
+                    ),
+                )
 
                 if list_images is not None:
                     for image_type, path_or_url in list_images.items():
