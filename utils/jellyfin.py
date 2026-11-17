@@ -467,7 +467,10 @@ class JellyfinClient:
             f"{self.server_url}/Items",
             headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
             params={
-                "Recursive": "true",
+                # Only the direct members can be removed. Recursing also returns
+                # the contents of series and nested collections, which makes
+                # Jellyfin log a warning for every one of them.
+                "Recursive": "false",
                 "parentId": item_id,
                 "userId": self.user_id,
             },
