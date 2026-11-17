@@ -338,6 +338,10 @@ class JellyfinClient:
             "enableTotalRecordCount": "false",
             "enableImages": "false",
             "Recursive": "true",
+            # Without a searchTerm, Jellyfin replaces items that are already in
+            # a collection with the collection itself when grouping into
+            # collections is enabled, so they could never be matched.
+            "collapseBoxSetItems": "false",
             "IncludeItemTypes": media_type,
             "searchTerm": item["title"],
             "fields": ["ProviderIds", "ProductionYear"],
