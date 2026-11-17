@@ -406,9 +406,20 @@ class JellyfinClient:
         item_fullname = f"{_series_name}{original_title or item['title']}"
 
         if match is None:
-            # Try searching all media types before assuming it does not exist
-            # Only end when media_type is [], meaning we searched all media_types
-            if item["title"] is not None:
+            # Widen the search before assuming it does not exist:
+            #   1. title + media type (the search above)
+            #   2. title across all media types, which is a quick search that
+            #      finds e.g. series listed as movies
+            #   3. no title across all media types, which lists the whole
+            #      library and relies on ids, for items with a different title
+            if item["title"] is not None and len(media_type) != 0:
+                return self.find_item(
+                    item={**item, "media_type": None},
+                    year_filter=year_filter,
+                    jellyfin_query_parameters=jellyfin_query_parameters,
+                    original_title=original_title,
+                )
+            elif item["title"] is not None:
                 return self.find_item(
                     item={**item, "title": None},
                     year_filter=year_filter,
