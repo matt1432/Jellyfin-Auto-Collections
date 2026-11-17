@@ -30,7 +30,8 @@ class PItem(TypedDict):
     Id: str
     Name: str
     ProviderIds: dict[str, str]
-    ProductionYear: int
+    # Missing on e.g. collections
+    ProductionYear: NotRequired[int]
 
 
 @final
@@ -57,6 +58,13 @@ class JellyfinClient:
         "video": ["Movie", "TvProgram", "Episode", "Series"],
         "show": ["Program", "Series"],
     }
+
+    # Every type a list item can be matched to, including collections which
+    # can be matched by their TMDb id
+    all_media_types = sorted(
+        {t for types in imdb_to_jellyfin_type_map.values() for t in types}
+        | {"BoxSet"}
+    )
 
     def __init__(self, server_url: str, api_key: str, user_id: str):
         self.server_url = server_url
@@ -342,7 +350,9 @@ class JellyfinClient:
             # a collection with the collection itself when grouping into
             # collections is enabled, so they could never be matched.
             "collapseBoxSetItems": "false",
-            "IncludeItemTypes": media_type,
+            # Searching "all" types would otherwise also return people, studios,
+            # genres, etc. which can then be matched by title or year.
+            "IncludeItemTypes": media_type or self.all_media_types,
             "searchTerm": item["title"],
             "fields": ["ProviderIds", "ProductionYear"],
             "userId": self.user_id,
@@ -387,9 +397,15 @@ class JellyfinClient:
             # Check if there's a year match
             if match is None and year_filter:
                 for result in items:
-                    if "release_year" in item and str(
-                        result.get("ProductionYear", None)
-                    ) == str(item["release_year"]):
+                    # Without a year on both sides, str(None) == str(None)
+                    # would match anything without a ProductionYear
+                    year = result.get("ProductionYear")
+                    release_year = item.get("release_year")
+                    if (
+                        year is not None
+                        and release_year is not None
+                        and str(year) == str(release_year)
+                    ):
                         match = result
                         break
 
@@ -472,6 +488,29 @@ class JellyfinClient:
         res.raise_for_status()
         return cast(list[PItem], res.json()["Items"])
 
+    def get_playable_ids(self, item_id: str) -> set[str]:
+        """
+        Gets the ids a playlist stores when this item is added to it: the
+        episodes of a season or series, or the item itself otherwise.
+        Mirrors Playlist.GetPlaylistItems in Jellyfin.
+        """
+        res = requests.get(
+            f"{self.server_url}/Items",
+            headers={"Authorization": f'MediaBrowser Token="{self.api_key}"'},
+            params={
+                "parentId": item_id,
+                "Recursive": "true",
+                "IsFolder": "false",
+                "MediaTypes": "Video,Audio",
+                "enableImages": "false",
+                "enableTotalRecordCount": "false",
+                "userId": self.user_id,
+            },
+        )
+        res.raise_for_status()
+        ids = {item["Id"] for item in res.json()["Items"]}
+        return ids or {item_id}
+
     def add_items(self, parent_item_id: str, item_ids: list[str]):
         """Adds items to a collection or playlist, appending in order for playlists"""
         for i in range(0, len(item_ids), 10):
@@ -525,7 +564,8 @@ class JellyfinClient:
         """
         Makes a collection or playlist contain the wanted items, only adding
         what is missing and, if remove_unwanted is set, removing what is no
-        longer wanted. Playlists are rebuilt if their order no longer matches.
+        longer wanted. Playlists are rebuilt if their content or order no
+        longer matches.
         """
         # Deduplicate while keeping the list order
         wanted = list({item["Id"]: item for item in reversed(wanted)}.values())[
@@ -536,15 +576,35 @@ class JellyfinClient:
         current = self.get_children(parent_item_id)
         current_ids = [item["Id"] for item in current]
 
-        if (
-            self.item_type == "playlist"
-            and remove_unwanted
-            and current_ids != wanted_ids
-        ):
-            # Jellyfin can only append to playlists, so fix the order by
-            # rebuilding it. This only happens when the list has changed.
-            to_remove = current
-            to_add = wanted
+        if self.item_type == "playlist":
+            # Jellyfin stores a season or series added to a playlist as its
+            # individual episodes, so compare against those instead.
+            groups = [self.get_playable_ids(item_id) for item_id in wanted_ids]
+
+            if remove_unwanted:
+                # Check that each wanted item's entries appear in list order.
+                # Within one item, Jellyfin decides the order.
+                pos = 0
+                in_sync = True
+                for group in groups:
+                    if set(current_ids[pos : pos + len(group)]) != group:
+                        in_sync = False
+                        break
+                    pos += len(group)
+                in_sync = in_sync and pos == len(current_ids)
+
+                # Rebuilding is the simplest way to fix the order, and it only
+                # happens when the list has changed.
+                to_remove = [] if in_sync else current
+                to_add = [] if in_sync else wanted
+            else:
+                present = set(current_ids)
+                to_remove = []
+                to_add = [
+                    item
+                    for item, group in zip(wanted, groups)
+                    if not group <= present
+                ]
         else:
             to_remove = (
                 [item for item in current if item["Id"] not in wanted_ids]
